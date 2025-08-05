@@ -282,6 +282,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     console.log('🚀 Webhook Hotmart recebido (RAW)')
+    console.log('📦 Headers recebidos:', req.headers)
     
     // Validar headers
     const signature = req.headers['x-hotmart-signature'] as string

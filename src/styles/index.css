@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-primary-50 text-elegant-800 antialiased transition-all duration-200;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  * {
+    @apply box-border;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 
+           text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 
+           focus:ring-2 focus:ring-primary-300 focus:ring-offset-2 
+           shadow-elegant hover:shadow-elegant-lg hover:scale-105 transform;
+  }
+  
+  .btn-secondary {
+    @apply bg-white hover:bg-primary-50 text-elegant-700 font-medium py-3 px-6 
+           rounded-2xl transition-all duration-200 border border-primary-200 
+           shadow-elegant hover:shadow-elegant-lg hover:scale-105 transform;
+  }
+  
+  .btn-accent {
+    @apply bg-secondary-500 hover:bg-secondary-600 text-white font-semibold py-3 px-6 
+           rounded-2xl transition-all duration-200 
+           focus:ring-2 focus:ring-secondary-300 focus:ring-offset-2 
+           shadow-elegant hover:shadow-elegant-lg hover:scale-105 transform;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border-2 border-primary-200 focus:border-primary-500 
+           bg-white rounded-2xl focus:ring-2 focus:ring-primary-200 transition-all duration-200
+           placeholder-elegant-400;
+  }
+  
+  .card {
+    @apply bg-white rounded-2xl shadow-elegant p-6 
+           transition-all duration-200 hover:shadow-elegant-lg;
+  }
+  
+  .card-elegant {
+    @apply bg-white/80 backdrop-blur-sm rounded-3xl shadow-elegant p-8 
+           transition-all duration-200 hover:shadow-elegant-lg border border-white/50;
+  }
+  
+  .card-interactive {
+    @apply bg-white/80 backdrop-blur-sm rounded-3xl shadow-elegant p-6 
+           transition-all duration-200 hover:shadow-elegant-lg hover:scale-105 
+           transform cursor-pointer border border-white/50;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center p-3 rounded-2xl text-elegant-700 
+           hover:bg-primary-100 hover:text-primary-600 
+           transition-all duration-200 font-medium;
+  }
+  
+  .sidebar-item-active {
+    @apply flex items-center p-3 rounded-2xl bg-gradient-to-r from-primary-500 to-secondary-500 
+           text-white font-semibold shadow-elegant;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent;
+  }
+  
+  .bg-elegant-gradient {
+    background: linear-gradient(135deg, #fef2f8 0%, #faf5ff 100%);
+  }
+  
+  .shadow-soft {
+    box-shadow: 0 2px 15px -3px rgba(236, 72, 153, 0.1), 0 10px 20px -2px rgba(168, 85, 247, 0.1);
+  }
+} 

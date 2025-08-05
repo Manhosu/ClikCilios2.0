@@ -247,19 +247,13 @@ async function processarCompraAprovada(data: HotmartWebhookData) {
   }
 }
 
-// Função para ler o body bruto
-function getRawBody(req: NextApiRequest): Promise<string> {
+// Função para ler o corpo da requisição como buffer
+function getRawBody(req: NextApiRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk.toString()
-    })
-    req.on('end', () => {
-      resolve(body)
-    })
-    req.on('error', (error) => {
-      reject(error)
-    })
+    const chunks: Buffer[] = []
+    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', (err) => reject(err))
   })
 }
 
@@ -292,7 +286,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Obter body bruto para validação HMAC
-    const rawBody = await getRawBody(req)
+    const bodyBuffer = await getRawBody(req)
+        let rawBody = bodyBuffer.toString('utf8')
+
+    // Remover BOM (Byte Order Mark) se presente
+    if (rawBody.charCodeAt(0) === 0xFEFF) {
+      console.log('Removing BOM from body');
+      rawBody = rawBody.slice(1);
+    }
     
     console.log('📝 Body bruto recebido:', {
       length: rawBody.length,

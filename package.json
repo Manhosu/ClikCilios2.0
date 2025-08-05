@@ -15,7 +15,10 @@
     "@mediapipe/face_mesh": "^0.4.1633559619",
     "@supabase/supabase-js": "^2.50.0",
     "@vercel/node": "^5.3.11",
+    "axios": "^1.11.0",
+    "dotenv": "^17.2.1",
     "face-api.js": "^0.22.2",
+    "node-fetch": "^2.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1"

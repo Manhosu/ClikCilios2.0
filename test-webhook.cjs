@@ -1,50 +1,46 @@
+require('dotenv').config();
 const crypto = require('crypto');
+const fs = require('fs');
+const axios = require('axios');
 
-// Dados de teste do webhook
-const webhookData = {
-  "id": "test-123",
-  "event": "PURCHASE_APPROVED",
-  "data": {
-    "purchase": {
-      "order_id": "ORDER-123",
-      "order_date": 1641024000000,
-      "status": "APPROVED",
-      "buyer": {
-        "name": "João Silva",
-        "email": "joao@teste.com"
-      },
-      "offer": {
-        "code": "OFFER-123",
-        "name": "Produto Teste"
-      },
-      "price": {
-        "value": 97.00,
-        "currency_code": "BRL"
-      },
-      "tracking": {
-        "coupon": "DESCONTO10",
-        "source": "facebook"
-      }
+const payload = fs.readFileSync('temp_payload.json', 'utf8');
+const secret = process.env.HOTMART_WEBHOOK_SECRET;
+
+if (!secret) {
+    console.error('Erro: A variável de ambiente HOTMART_WEBHOOK_SECRET não está definida.');
+    process.exit(1);
+}
+
+const hmac = crypto.createHmac('sha256', secret);
+hmac.update(payload, 'utf8');
+const signature = 'sha256=' + hmac.digest('hex');
+
+const url = 'https://clik-cilios2-0.vercel.app/api/debug-webhook-main';
+
+console.log('Enviando requisição para:', url);
+// console.log('Payload:', payload);
+console.log('Assinatura:', signature);
+
+axios.post(url, payload, {
+    headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'x-hotmart-signature': signature
+    },
+    // Enviar como buffer para evitar problemas de encoding
+    transformRequest: (data, headers) => {
+        return data;
     }
-  }
-};
-
-// Converter para string JSON
-const body = JSON.stringify(webhookData);
-
-// Secret do webhook
-const webhookSecret = 'PRESENTE';
-
-// Gerar assinatura HMAC
-const signature = crypto
-  .createHmac('sha256', webhookSecret)
-  .update(body)
-  .digest('hex');
-
-console.log('Body:', body);
-console.log('Signature:', `sha256=${signature}`);
-console.log('\nPara testar o webhook, use:');
-console.log(`curl -X POST https://clik-cilios2-0.vercel.app/api/hotmart-webhook \\`);
-console.log(`  -H "Content-Type: application/json" \\`);
-console.log(`  -H "X-Hotmart-Signature: sha256=${signature}" \\`);
-console.log(`  -d '${body}'`);
+})
+.then(res => {
+    console.log('Status:', res.status, res.statusText);
+    fs.writeFileSync('debug-output.log', typeof res.data === 'object' ? JSON.stringify(res.data) : res.data);
+    console.log('Corpo da Resposta salvo em debug-output.log');
+    if (res.status !== 200) {
+        console.error('O teste falhou com status diferente de 200.');
+        process.exit(1);
+    }
+})
+.catch(err => {
+    console.error('Erro na requisição:', err.response ? { status: err.response.status, data: err.response.data } : err.message);
+    process.exit(1);
+});

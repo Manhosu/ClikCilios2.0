@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 const LoginPage = () => {
@@ -12,7 +11,6 @@ const LoginPage = () => {
   const [nome, setNome] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   
-  const navigate = useNavigate()
   const { login, register, resetPassword, isAuthenticated } = useAuth()
   console.log('🔐 LoginPage: isAuthenticated =', isAuthenticated)
 
@@ -302,4 +300,4 @@ const LoginPage = () => {
   )
 }
 
-export default LoginPage 
+export default LoginPage

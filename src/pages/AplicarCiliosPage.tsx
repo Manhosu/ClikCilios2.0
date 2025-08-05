@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getEstilosCilios, applyLashes, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
+import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
 import Button from '../components/Button'
 
 const AplicarCiliosPage = () => {
@@ -498,4 +498,4 @@ const AplicarCiliosPage = () => {
   )
 }
 
-export default AplicarCiliosPage 
+export default AplicarCiliosPage

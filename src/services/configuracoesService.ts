@@ -35,14 +35,14 @@ class ConfiguracoesLocalStorage {
     }
   }
 
-  async carregar(userId: string): Promise<Configuracoes> {
+  async carregar(): Promise<Configuracoes> {
     return this.getConfiguracoes()
   }
 
-  async salvar(userId: string, configuracoes: Configuracoes): Promise<Configuracoes> {
+  async salvar(configuracoes: Configuracoes): Promise<Configuracoes> {
     const configComId = {
       ...configuracoes,
-      id: configuracoes.id || `config_${userId}_${Date.now()}`
+      id: configuracoes.id || `config_${Date.now()}`
     }
     
     this.salvarConfiguracoes(configComId)
@@ -55,10 +55,10 @@ const configuracoesLocal = new ConfiguracoesLocalStorage()
 
 // Serviço principal
 export const configuracoesService = {
-  async carregar(userId: string): Promise<Configuracoes> {
+  async carregar(_userId: string): Promise<Configuracoes> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - carregando configurações do localStorage')
-      return await configuracoesLocal.carregar(userId)
+      return await configuracoesLocal.carregar()
     }
 
     // TODO: Implementar integração com Supabase quando tabela 'configuracoes_usuario' for criada
@@ -66,13 +66,13 @@ export const configuracoesService = {
     return DEFAULT_CONFIGURACOES
   },
 
-  async salvar(userId: string, configuracoes: Configuracoes): Promise<Configuracoes> {
+  async salvar(_userId: string, configuracoes: Configuracoes): Promise<Configuracoes> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - salvando configurações no localStorage')
-      return await configuracoesLocal.salvar(userId, configuracoes)
+      return await configuracoesLocal.salvar(configuracoes)
     }
 
     // TODO: Implementar integração com Supabase quando tabela 'configuracoes_usuario' for criada
     throw new Error('Tabela configuracoes_usuario não implementada no Supabase ainda')
   }
-} 
+}

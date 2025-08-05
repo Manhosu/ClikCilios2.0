@@ -145,13 +145,7 @@ const AdminTestePage: React.FC = () => {
     }
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setImagemTeste(file)
-      setTesteAlinhamento(null)
-    }
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -485,4 +479,4 @@ const AdminTestePage: React.FC = () => {
   )
 }
 
-export default AdminTestePage 
+export default AdminTestePage

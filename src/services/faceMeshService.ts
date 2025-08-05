@@ -1,5 +1,5 @@
 import { FaceMesh } from '@mediapipe/face_mesh'
-import { Camera } from '@mediapipe/camera_utils'
+// import { Camera } from '@mediapipe/camera_utils' // Removido - não utilizado
 
 // 🎯 LANDMARKS ESPECÍFICOS DA PÁLPEBRA SUPERIOR (MediaPipe Face Mesh)
 export const EYELID_LANDMARKS = {
@@ -217,4 +217,4 @@ export const sortEyelidLandmarks = (
   
   console.log(`📊 Landmarks ordenados: ${sorted.length} pontos para olho ${isRightEye ? 'direito' : 'esquerdo'}`)
   return sorted
-} 
+}

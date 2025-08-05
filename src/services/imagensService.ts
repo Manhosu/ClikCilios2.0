@@ -37,13 +37,13 @@ class ImagensLocalStorage {
     }
   }
 
-  async listar(userId: string): Promise<Imagem[]> {
+  async listar(): Promise<Imagem[]> {
     const imagens = this.getImagens()
     // Em modo desenvolvimento local, retornar todas as imagens (não há separação por usuário)
     return imagens
   }
 
-  async criar(userId: string, dadosImagem: Omit<Imagem, 'id' | 'created_at'>): Promise<Imagem> {
+  async criar(dadosImagem: Omit<Imagem, 'id' | 'created_at'>): Promise<Imagem> {
     const novaImagem: Imagem = {
       ...dadosImagem,
       id: generateId(),
@@ -85,10 +85,10 @@ const imagensLocal = new ImagensLocalStorage()
 
 // Serviço principal
 export const imagensService = {
-  async listar(userId: string): Promise<Imagem[]> {
+  async listar(_userId: string): Promise<Imagem[]> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - carregando imagens do localStorage')
-      return await imagensLocal.listar(userId)
+      return await imagensLocal.listar()
     }
 
     // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
@@ -96,10 +96,10 @@ export const imagensService = {
     return []
   },
 
-  async criar(userId: string, dadosImagem: Omit<Imagem, 'id' | 'created_at'>): Promise<Imagem> {
+  async criar(_userId: string, dadosImagem: Omit<Imagem, 'id' | 'created_at'>): Promise<Imagem> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - salvando imagem no localStorage')
-      return await imagensLocal.criar(userId, dadosImagem)
+      return await imagensLocal.criar(dadosImagem)
     }
 
     // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
@@ -125,4 +125,4 @@ export const imagensService = {
     // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
     throw new Error('Tabela imagens não implementada no Supabase ainda')
   }
-} 
+}

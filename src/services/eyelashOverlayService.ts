@@ -297,8 +297,7 @@ const applySubtleCurveWarp = (
   
   for (let i = 0; i < segments; i++) {
     const t = i / (segments - 1)
-    const curveIndex = Math.floor(t * (splineCurve.length - 1))
-    const curvePoint = splineCurve[curveIndex]
+    // const curveIndex = Math.floor(t * (splineCurve.length - 1)) // Removido por não estar em uso
     
     // Calcula offset Y baseado na curvatura da pálpebra
     const yOffset = Math.sin(t * Math.PI) * warpStrength * height * 0.1
@@ -366,4 +365,4 @@ const getEyelashFileName = (styleId: string): string => {
   }
   
   return fileMap[styleId] || `${styleId}.png`
-} 
+}

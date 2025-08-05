@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react'
+import { createContext, ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import type { AuthState } from '../hooks/useAuth'
 
@@ -41,4 +41,4 @@ function AuthProvider({ children }: AuthProviderProps) {
 export { AuthContext }
 
 // Exportação padrão SOMENTE do componente
-export default AuthProvider 
+export default AuthProvider

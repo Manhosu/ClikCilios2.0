@@ -36,13 +36,13 @@ class ClientesLocalStorage {
     }
   }
 
-  async listar(userId: string): Promise<Cliente[]> {
+  async listar(): Promise<Cliente[]> {
     const clientes = this.getClientes()
     // Em modo desenvolvimento local, retornar todos os clientes (não há separação por usuário)
     return clientes
   }
 
-  async criar(userId: string, dadosCliente: Omit<Cliente, 'id' | 'created_at'>): Promise<Cliente> {
+  async criar(dadosCliente: Omit<Cliente, 'id' | 'created_at'>): Promise<Cliente> {
     const novoCliente: Cliente = {
       ...dadosCliente,
       id: generateId(),
@@ -87,7 +87,7 @@ export const clientesService = {
   async listar(userId: string): Promise<Cliente[]> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - carregando clientes do localStorage')
-      return await clientesLocal.listar(userId)
+      return await clientesLocal.listar()
     }
 
     try {
@@ -108,7 +108,7 @@ export const clientesService = {
   async criar(userId: string, dadosCliente: Omit<Cliente, 'id' | 'created_at'>): Promise<Cliente> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - salvando cliente no localStorage')
-      return await clientesLocal.criar(userId, dadosCliente)
+      return await clientesLocal.criar(dadosCliente)
     }
 
     try {
@@ -180,4 +180,4 @@ export const clientesService = {
       throw error
     }
   }
-} 
+}

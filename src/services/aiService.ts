@@ -3,8 +3,7 @@ import * as faceapi from 'face-api.js'
 import { 
   initializeFaceMesh, 
   detectFaceMeshLandmarks, 
-  sortEyelidLandmarks,
-  type FaceMeshResults 
+  sortEyelidLandmarks
 } from './faceMeshService'
 import { 
   applyEyelashOverlayWithSpline
@@ -232,7 +231,7 @@ const getEyelashFileName = (styleId: string): string => {
  * 🚫 TEMPORARIAMENTE DESABILITADO: Detecta pontos faciais usando face-api.js
  * (Desabilitado devido a problemas de carregamento de modelo)
  */
-const detectFacialLandmarks = async (imageElement: HTMLImageElement) => {
+const detectFacialLandmarks = async () => {
   // Temporariamente desabilitado para evitar erros
   console.log('ℹ️ face-api.js temporariamente desabilitado, usando fallback inteligente')
   return null
@@ -567,7 +566,7 @@ export const applyCurvedEyelashOverlay = async (
     overlayImg.onload = () => {
       try {
         // 1. EXTRAÇÃO DE LANDMARKS ESPECÍFICOS DA PÁLPEBRA SUPERIOR
-        const upperEyelidLandmarks = extractUpperEyelidCurve(landmarks, isRightEye)
+        const upperEyelidLandmarks = extractUpperEyelidCurve(landmarks)
         
         // 2. GERAÇÃO DA CURVA ANATÔMICA BÉZIER/SPLINE
         const eyelidCurve = generateAnatomicalCurve(upperEyelidLandmarks)
@@ -616,8 +615,7 @@ export const applyCurvedEyelashOverlay = async (
  * 👁️ FUNÇÃO: Extrai pontos específicos da curvatura da pálpebra superior
  */
 const extractUpperEyelidCurve = (
-  landmarks: Array<{x: number, y: number}>,
-  isRightEye: boolean
+  landmarks: Array<{x: number, y: number}>
 ): Array<{x: number, y: number}> => {
   // Para face-api.js (68 pontos) ou landmarks customizados
   if (landmarks.length >= 6) {
@@ -893,64 +891,7 @@ const applyAdvancedCurveMask = (
   ctx.restore()
 }
 
-/**
- * 💎 FUNÇÃO DE VALIDAÇÃO VISUAL: Verifica naturalidade do resultado
- */
-const validateVisualResult = (
-  eyeLandmarks: Array<{x: number, y: number}>,
-  refinements: any,
-  styleConfig: any
-): {
-  score: number,
-  feedback: string[],
-  adjustments: any
-} => {
-  const feedback: string[] = []
-  let score = 100
-  const adjustments: any = {}
-  
-  // 1. Verifica se o offset anatômico não está excessivo
-  const eyeHeight = Math.abs(eyeLandmarks[1].y - eyeLandmarks[0].y) * 2
-  const offsetRatio = Math.abs(refinements.anatomicalOffsetY) / eyeHeight
-  
-  if (offsetRatio > 0.25) {
-    score -= 20
-    feedback.push('Offset muito alto - reduzindo para 20% da altura do olho')
-    adjustments.anatomicalOffsetY = -eyeHeight * 0.20
-  }
-  
-  // 2. Verifica ângulo de rotação excessivo
-  const angleDegrees = Math.abs(refinements.refinedAngle * 180 / Math.PI)
-  if (angleDegrees > 25) {
-    score -= 15
-    feedback.push('Rotação excessiva - limitando a 25°')
-    adjustments.maxRotation = 25 * Math.PI / 180
-  }
-  
-  // 3. Verifica proporção da projeção vertical
-  const eyeWidth = Math.sqrt(
-    Math.pow(eyeLandmarks[3].x - eyeLandmarks[0].x, 2) + 
-    Math.pow(eyeLandmarks[3].y - eyeLandmarks[0].y, 2)
-  )
-  const projectionRatio = refinements.maxVerticalProjection / eyeWidth
-  
-  if (projectionRatio > styleConfig.maxProjectionRatio + 0.1) {
-    score -= 10
-    feedback.push('Projeção vertical muito alta - aplicando limite do estilo')
-    adjustments.maxVerticalProjection = eyeWidth * styleConfig.maxProjectionRatio
-  }
-  
-  // 4. Classificação final
-  let classification = 'excellent'
-  if (score < 90) classification = 'good'
-  if (score < 70) classification = 'poor'
-  
-  return {
-    score,
-    feedback,
-    adjustments
-  }
-}
+
 
 /**
  * 🎯 FUNÇÃO CRUCIAL: Calcula ponto de ancoragem na raiz dos cílios naturais
@@ -1030,7 +971,6 @@ const getEyelashAnchorPoint = (
  * 🎯 FUNÇÃO CORRIGIDA: Overlay posicionado na raiz dos cílios naturais
  */
 const applyEyelashOverlay = async (
-  canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
   overlayImageUrl: string,
   eyeLandmarks: Array<{x: number, y: number}>,
@@ -1049,7 +989,7 @@ const applyEyelashOverlay = async (
         const innerCorner = eyeLandmarks[0]  // Canto interno
         const outerCorner = eyeLandmarks[3]  // Canto externo  
         const upperMid = eyeLandmarks[1]     // Centro superior
-        const upperOuter = eyeLandmarks[2]   // Superior externo
+        // const upperOuter = eyeLandmarks[2]   // Superior externo - removido por não estar em uso
         
         // 2. 🎯 CALCULA PONTO DE ANCORAGEM NA RAIZ DOS CÍLIOS NATURAIS
         const eyelashAnchor = getEyelashAnchorPoint(eyeLandmarks, isRightEye)
@@ -1076,23 +1016,23 @@ const applyEyelashOverlay = async (
         const styleConfig = getStyleRefinementConfig(selectedStyle)
         
         // 5. CURVA SUAVE DA PÁLPEBRA SUPERIOR (PARA REFERÊNCIA DE CURVATURA)
-        const upperEyelidPoints = [
-          innerCorner,          // Ponto 0: Canto interno
-          {                     // Ponto 1: Interpolado interno-meio
-            x: innerCorner.x + (upperMid.x - innerCorner.x) * 0.33,
-            y: innerCorner.y + (upperMid.y - innerCorner.y) * 0.8
-          },
-          upperMid,             // Ponto 2: Centro superior
-          {                     // Ponto 3: Interpolado meio-externo  
-            x: upperMid.x + (upperOuter.x - upperMid.x) * 0.5,
-            y: upperMid.y + (upperOuter.y - upperMid.y) * 0.9
-          },
-          upperOuter,           // Ponto 4: Superior externo
-          outerCorner           // Ponto 5: Canto externo
-        ]
+        // const upperEyelidPoints = [ // Removido - não utilizado
+        //   innerCorner,          // Ponto 0: Canto interno
+        //   {                     // Ponto 1: Interpolado interno-meio
+        //     x: innerCorner.x + (upperMid.x - innerCorner.x) * 0.33,
+        //     y: innerCorner.y + (upperMid.y - innerCorner.y) * 0.8
+        //   },
+        //   upperMid,             // Ponto 2: Centro superior
+        //   {                     // Ponto 3: Interpolado meio-externo  
+        //     x: upperMid.x + (upperOuter.x - upperMid.x) * 0.5,
+        //     y: upperMid.y + (upperOuter.y - upperMid.y) * 0.9
+        //   },
+        //   upperOuter,           // Ponto 4: Superior externo
+        //   outerCorner           // Ponto 5: Canto externo
+        // ]
         
         // 6. GERA CURVA BÉZIER SUAVE E CONTÍNUA (PARA CURVATURA DE REFERÊNCIA)
-        const smoothCurve = generateBezierCurve(upperEyelidPoints, 20) // 20 pontos para suavidade
+        // const smoothCurve = generateBezierCurve(upperEyelidPoints, 20) // 20 pontos para suavidade
         
         // 7. CÁLCULOS DE TRANSFORMAÇÃO UNIFICADA
         
@@ -1355,7 +1295,6 @@ const drawEyelashAlongCurve = async (
   
   // Usa a nova função de overlay unificado
   return applyEyelashOverlay(
-    canvas,
     ctx, 
     eyelashUrl,
     eyelidCurve,
@@ -1488,11 +1427,11 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
           
           // 2. Tenta detecção facial se disponível
           if (faceApiAvailable) {
-            faceData = await detectFacialLandmarks(img)
+            faceData = await detectFacialLandmarks()
           }
           
           // 3. Calcula curvas da pálpebra superior (landmarks reais OU estimativa inteligente)
-          const eyelidCurves = calculateEyelidCurve(img, faceData)
+          const eyelidCurves = await calculateEyelidCurve(img, faceData)
           
           if (!eyelidCurves) {
             throw new Error('Falha ao calcular landmarks dos olhos')
@@ -1545,10 +1484,10 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
             // Recalcula as curvas para o fallback
             let fallbackFaceData = null
             if (faceApiAvailable) {
-              fallbackFaceData = await detectFacialLandmarks(img)
+              fallbackFaceData = await detectFacialLandmarks()
             }
             
-            const eyelidCurves = calculateEyelidCurve(img, fallbackFaceData)
+            const eyelidCurves = await calculateEyelidCurve(img, fallbackFaceData)
             if (eyelidCurves) {
               const canvas = document.createElement('canvas')
               canvas.width = img.width
@@ -1629,11 +1568,11 @@ export const applyEyelashesLegacy = async (imageFile: File, selectedStyle: strin
           
           // 2. Tenta detecção facial se disponível
           if (faceApiAvailable) {
-            faceData = await detectFacialLandmarks(img)
+            faceData = await detectFacialLandmarks()
           }
           
           // 3. Calcula curvas da pálpebra superior (landmarks reais OU estimativa inteligente)
-          const eyelidCurves = calculateEyelidCurve(img, faceData)
+          const eyelidCurves = await calculateEyelidCurve(img, faceData)
           
           if (!eyelidCurves) {
             throw new Error('Falha ao calcular landmarks dos olhos')
@@ -1949,7 +1888,7 @@ export const testCurvedEyelashApplication = async (imageFile: File, styleId: str
           let faceData = null
           
           if (faceApiAvailable) {
-            faceData = await detectFacialLandmarks(img)
+            faceData = await detectFacialLandmarks()
           }
           
           const eyelidCurves = await calculateEyelidCurve(img, faceData)
@@ -1960,8 +1899,8 @@ export const testCurvedEyelashApplication = async (imageFile: File, styleId: str
             let anatomicalAccuracy = 100
             
             // Testa extração da curvatura da pálpebra superior
-            const leftEyelidCurve = extractUpperEyelidCurve(eyelidCurves.leftEye, false)
-            const rightEyelidCurve = extractUpperEyelidCurve(eyelidCurves.rightEye, true)
+            const leftEyelidCurve = extractUpperEyelidCurve(eyelidCurves.leftEye)
+            const rightEyelidCurve = extractUpperEyelidCurve(eyelidCurves.rightEye)
             
             // Gera curvas anatômicas
             const leftAnatomicalCurve = generateAnatomicalCurve(leftEyelidCurve)
@@ -2110,7 +2049,7 @@ export const testEyelashAlignment = async (imageFile: File): Promise<{
         let faceData = null
         
         if (faceApiAvailable) {
-          faceData = await detectFacialLandmarks(img)
+          faceData = await detectFacialLandmarks()
         }
         
         if (faceData) {
@@ -2333,60 +2272,4 @@ if (typeof window !== 'undefined') {
 /**
  * 🔍 FUNÇÃO MELHORADA: Detecta tipo de arquivo de overlay automaticamente
  */
-const detectOverlayType = async (overlayPath: string): Promise<'png' | 'svg' | 'missing'> => {
-  try {
-    // Testa PNG primeiro
-    const pngResponse = await fetch(overlayPath.replace('.svg', '.png'))
-    if (pngResponse.ok) {
-      console.log(`✅ Arquivo PNG encontrado: ${overlayPath.replace('.svg', '.png')}`)
-      return 'png'
-    }
-    
-    // Testa SVG
-    const svgResponse = await fetch(overlayPath)
-    if (svgResponse.ok) {
-      console.log(`✅ Arquivo SVG encontrado: ${overlayPath}`)
-      return 'svg'
-    }
-    
-    console.warn(`⚠️ Nenhum arquivo encontrado para: ${overlayPath}`)
-    return 'missing'
-    
-  } catch (error) {
-    console.error(`❌ Erro ao detectar tipo de overlay:`, error)
-    return 'missing'
-  }
-}
-
-/**
- * 📊 FUNÇÃO DE MÉTRICAS: Calcula qualidade do alinhamento em tempo real
- */
-const calculateAlignmentQuality = (eyeLandmarks: Array<{x: number, y: number}>): number => {
-  if (eyeLandmarks.length < 4) return 0
-  
-  const innerCorner = eyeLandmarks[0]
-  const outerCorner = eyeLandmarks[3]
-  const upperMid = eyeLandmarks[1]
-  
-  // Fatores de qualidade
-  const eyeWidth = Math.sqrt(
-    Math.pow(outerCorner.x - innerCorner.x, 2) + 
-    Math.pow(outerCorner.y - innerCorner.y, 2)
-  )
-  
-  const eyeHeight = Math.abs(upperMid.y - (innerCorner.y + outerCorner.y) / 2)
-  const aspectRatio = eyeWidth / eyeHeight
-  
-  // Qualidade baseada em:
-  // 1. Tamanho mínimo do olho (>20px)
-  // 2. Proporção realista (2:1 a 4:1)
-  // 3. Definição dos pontos
-  
-  let quality = 0
-  if (eyeWidth > 20) quality += 40
-  if (eyeWidth > 40) quality += 20
-  if (aspectRatio >= 2 && aspectRatio <= 4) quality += 30
-  if (eyeHeight > 5) quality += 10
-  
-  return Math.min(quality, 100)
-} 
+// Funções removidas: detectOverlayType e calculateAlignmentQuality (não utilizadas)

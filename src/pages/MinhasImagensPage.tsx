@@ -127,21 +127,7 @@ const MinhasImagensPage: React.FC = () => {
     }
   }
 
-  const atualizarObservacoes = async (id: string, observacoes: string) => {
-    try {
-      const imagemAtualizada = await imagensService.atualizar(id, { observacoes })
-      if (imagemAtualizada) {
-        setImagens(prev => prev.map(img => 
-          img.id === id ? imagemAtualizada : img
-        ))
-        // Recarregar dados para garantir sincronização
-        carregarDados()
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar observações:', error)
-      alert('Erro ao atualizar observações')
-    }
-  }
+
 
   const imagensFiltradas = imagens.filter(img => {
     const matchEstilo = !filtroEstilo || img.estilo_aplicado === filtroEstilo
@@ -463,4 +449,4 @@ const MinhasImagensPage: React.FC = () => {
   )
 }
 
-export default MinhasImagensPage 
+export default MinhasImagensPage

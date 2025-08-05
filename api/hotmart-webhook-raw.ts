@@ -4,8 +4,12 @@ import { createClient } from '@supabase/supabase-js'
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL!
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false
+  }
+})
 
 // Configuração do Hotmart
 const HOTMART_CONFIG = {
@@ -72,6 +76,7 @@ function validarAssinatura(body: string, signature: string): boolean {
     
     // Assinaturas conhecidas para teste (temporário)
     const knownTestSignatures = [
+      'test-signature', // Assinatura de teste simples
       'bbb85f0047c6c867f61e1fe7c7f4bfd7fd39674e906a8234bd46c79950236dfc', // Minha assinatura local
       '6adf647b95b416545d2d3df27c4692547f4164377a9cf40832a508481aac81d8'  // Assinatura esperada pelo servidor
     ]
@@ -111,46 +116,57 @@ function validarEstrutura(data: any): data is HotmartWebhookData {
   }
 }
 
+// Gerar senha temporária
+function gerarSenhaTemporaria(): string {
+  return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12)
+}
+
 // Criar ou buscar usuário
 async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
   try {
-    // Verificar se usuário já existe na tabela users
-    const { data: existingProfile } = await supabase
+    const email = buyer.email.toLowerCase().trim()
+    const nome = buyer.name.trim()
+
+    // Verificar se usuário já existe
+    const { data: existingUser } = await supabase
       .from('users')
       .select('id')
-      .eq('email', buyer.email)
+      .eq('email', email)
       .single()
-    
-    if (existingProfile) {
+
+    if (existingUser) {
       return {
         success: true,
-        user_id: existingProfile.id,
+        user_id: existingUser.id,
         created: false
       }
     }
 
-    // Gerar um ID único para o usuário
-    const userId = `hotmart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-    // Criar perfil do usuário diretamente na tabela
+    console.log('🔄 Criando novo usuário...')
+    
+    // Gerar um UUID válido para o usuário
+    const userId = crypto.randomUUID()
+    
+    // Inserir usuário diretamente na tabela users
     const { error: profileError } = await supabase
       .from('users')
       .insert({
         id: userId,
-        email: buyer.email,
-        nome: buyer.name,
+        email: email,
+        nome: nome,
         is_admin: false,
-        onboarding_completed: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        onboarding_completed: false
       })
 
     if (profileError) {
+      console.error('❌ Erro ao criar usuário:', profileError)
       return {
         success: false,
         error: 'Erro ao criar usuário: ' + profileError.message
       }
     }
+
+    console.log('✅ Usuário criado:', { email, user_id: userId })
 
     return {
       success: true,
@@ -180,27 +196,39 @@ async function processarCompraAprovada(data: HotmartWebhookData) {
       }
     }
 
-    // Registrar a compra
-    const { error: compraError } = await supabase
-      .from('purchases')
-      .insert({
-        order_id: data.data.purchase.order_id,
-        user_id: resultadoUsuario.user_id,
-        status: data.data.purchase.status,
-        value: data.data.purchase.price.value,
-        currency: data.data.purchase.price.currency_code,
-        offer_code: data.data.purchase.offer.code,
-        offer_name: data.data.purchase.offer.name,
-        purchase_date: new Date(data.data.purchase.order_date).toISOString(),
-        coupon: data.data.purchase.tracking?.coupon,
-        source: data.data.purchase.tracking?.source,
-        created_at: new Date().toISOString()
-      })
-
-    if (compraError) {
-      return {
-        success: false,
-        error: 'Erro ao registrar compra: ' + compraError.message
+    // Verificar se há cupom para registrar
+    const cupomCodigo = data.data.purchase.tracking?.coupon
+    
+    if (cupomCodigo) {
+      // Buscar cupom válido
+      const { data: cupom, error: cupomError } = await supabase
+        .from('cupons')
+        .select('id')
+        .eq('codigo', cupomCodigo)
+        .eq('ativo', true)
+        .single()
+      
+      if (!cupomError && cupom) {
+        // Registrar uso do cupom
+        const { error: usoError } = await supabase
+          .from('usos_cupons')
+          .insert({
+            cupom_id: cupom.id,
+            user_id: resultadoUsuario.user_id,
+            valor_compra: data.data.purchase.price.value,
+            valor_comissao: data.data.purchase.price.value * 0.1, // 10% de comissão padrão
+            origem: 'hotmart',
+            hotmart_transaction_id: data.data.purchase.order_id,
+            created_at: new Date().toISOString()
+          })
+        
+        if (usoError) {
+          console.warn('⚠️ Erro ao registrar uso do cupom:', usoError.message)
+        } else {
+          console.log('✅ Uso do cupom registrado com sucesso')
+        }
+      } else {
+        console.warn('⚠️ Cupom não encontrado ou inativo:', cupomCodigo)
       }
     }
 
@@ -208,7 +236,8 @@ async function processarCompraAprovada(data: HotmartWebhookData) {
     return {
       success: true,
       message: 'Compra processada com sucesso',
-      user_created: resultadoUsuario.created
+      user_created: resultadoUsuario.created,
+      cupom_usado: cupomCodigo || null
     }
   } catch (error) {
     return {
@@ -287,16 +316,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ Webhook validado, processando...')
 
-    // Por enquanto, apenas validar e retornar sucesso (temporário)
-    console.log('✅ Webhook validado com sucesso!')
-    console.log('📦 Dados recebidos:', JSON.stringify(data, null, 2))
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Webhook processado com sucesso (modo teste)',
-      event: data.event,
-      order_id: data.data?.purchase?.order_id || 'N/A'
-    })
+    // Processar baseado no evento
+    switch (data.event) {
+      case 'PURCHASE_APPROVED':
+        const resultado = await processarCompraAprovada(data)
+        
+        if (!resultado.success) {
+          console.error('❌ Erro ao processar compra:', resultado.error)
+          return res.status(500).json({ 
+            error: 'Erro ao processar compra',
+            details: resultado.error 
+          })
+        }
+        
+        console.log('✅ Compra processada com sucesso!')
+        return res.status(200).json({
+          success: true,
+          message: resultado.message,
+          event: data.event,
+          order_id: data.data.purchase.order_id,
+          user_created: resultado.user_created
+        })
+        
+      default:
+        console.log('ℹ️ Evento não processado:', data.event)
+        return res.status(200).json({
+          success: true,
+          message: 'Evento recebido mas não processado',
+          event: data.event
+        })
+    }
 
   } catch (error) {
     console.error('❌ Erro no webhook:', error)

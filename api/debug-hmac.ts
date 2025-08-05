@@ -13,7 +13,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   // Obter o body como string
   const bodyString = JSON.stringify(req.body);
-  const receivedSignature = req.headers['x-hotmart-hottok'] as string;
+  const receivedSignature = req.headers['x-hotmart-signature'] as string;
 
   // Gerar assinatura esperada
   const expectedSignature = crypto

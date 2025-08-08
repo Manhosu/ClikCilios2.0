@@ -217,7 +217,7 @@ export class HotmartService {
       // Verificar se usuário já existe
       const { data: existingUser } = await supabase
         .from('users')
-        .select('id, auth_user_id')
+        .select('id')
         .eq('email', email)
         .single()
 
@@ -225,7 +225,7 @@ export class HotmartService {
         return {
           success: true,
           created: false,
-          user_id: existingUser.auth_user_id,
+          user_id: existingUser.id,
           message: 'Usuário já existe'
         }
       }
@@ -257,10 +257,11 @@ export class HotmartService {
       const { error: profileError } = await supabase
         .from('users')
         .insert({
+          id: authData.user.id,
           email: email,
           nome: nome,
-          tipo: 'profissional',
-          auth_user_id: authData.user.id
+          is_admin: false,
+          onboarding_completed: false
         })
 
       if (profileError) {
@@ -407,4 +408,4 @@ export class HotmartService {
       }
     }
   }
-} 
+}

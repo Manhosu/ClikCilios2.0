@@ -23,8 +23,8 @@ export interface AuthState {
   isAuthenticated: boolean
 }
 
-// Verificar se está em modo desenvolvimento
-const isDevMode = true;
+// Verificar se está em modo desenvolvimento baseado nas variáveis de ambiente
+const isDevMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Usuário mock para desenvolvimento
 const mockUser: User = {
   id: 'dev-user-123',
@@ -133,7 +133,7 @@ export const useAuth = () => {
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_user_id', authUser.id)
+        .eq('id', authUser.id)
         .single()
 
       if (error) {
@@ -150,7 +150,7 @@ export const useAuth = () => {
         id: userData.id,
         email: userData.email,
         nome: userData.nome,
-        tipo: userData.tipo,
+        tipo: userData.is_admin ? 'admin' : 'profissional',
         is_admin: userData.is_admin,
         onboarding_completed: userData.onboarding_completed
       }
@@ -319,4 +319,4 @@ export const useAuth = () => {
     logout,
     resetPassword
   }
-} 
+}

@@ -72,26 +72,20 @@ function validarAssinatura(body: string, signature: string): boolean {
       .update(body, 'utf8')
       .digest('hex')
     
-    const receivedSignature = signature.replace('sha256=', '')
-    
-    // Assinaturas conhecidas para teste (temporário)
-    const knownTestSignatures = [
-      'test-signature', // Assinatura de teste simples
-      'bbb85f0047c6c867f61e1fe7c7f4bfd7fd39674e906a8234bd46c79950236dfc', // Minha assinatura local
-      '6adf647b95b416545d2d3df27c4692547f4164377a9cf40832a508481aac81d8'  // Assinatura esperada pelo servidor
-    ]
-    
-    const isValidSignature = expectedSignature === receivedSignature || knownTestSignatures.includes(receivedSignature)
-    
+    const receivedSignature = signature.replace('sha256=', '');
+
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'hex'),
+      Buffer.from(receivedSignature, 'hex')
+    );
+
     console.log('🔐 Comparando assinaturas:', {
       expected: expectedSignature,
       received: receivedSignature,
-      match: expectedSignature === receivedSignature,
-      isTestSignature: knownTestSignatures.includes(receivedSignature),
-      finalResult: isValidSignature
-    })
-    
-    return isValidSignature
+      match: isValid
+    });
+
+    return isValid;
   } catch (error) {
     console.error('❌ Erro na validação HMAC:', error)
     return false
@@ -259,101 +253,63 @@ function getRawBody(req: NextApiRequest): Promise<Buffer> {
 
 // Função principal do webhook
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Configurar CORS
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Hotmart-Signature')
-
-  // Responder OPTIONS para CORS
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end()
-  }
-
-  // Apenas aceitar POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' })
   }
 
+  console.log('--- INÍCIO DA REQUISIÇÃO WEBHOOK ---')
+
   try {
-    console.log('🚀 Webhook Hotmart recebido (RAW)')
-    console.log('📦 Headers recebidos:', req.headers)
-    
-    // Validar headers
+    // Obter o corpo bruto da requisição
+    const rawBody = await getRawBody(req)
+    console.log('📄 Corpo bruto recebido (Buffer):', rawBody.toString('utf8'))
+
+    // Obter assinatura do cabeçalho
     const signature = req.headers['x-hotmart-signature'] as string
+    console.log('🔑 Assinatura recebida:', signature)
+
     if (!signature) {
-      console.error('❌ Assinatura HMAC não encontrada')
+      console.warn('⚠️ Assinatura HMAC não encontrada no cabeçalho')
       return res.status(401).json({ error: 'Assinatura HMAC necessária' })
     }
 
-    // Obter body bruto para validação HMAC
-    const bodyBuffer = await getRawBody(req)
-        let rawBody = bodyBuffer.toString('utf8')
-
-    // Remover BOM (Byte Order Mark) se presente
-    if (rawBody.charCodeAt(0) === 0xFEFF) {
-      console.log('Removing BOM from body');
-      rawBody = rawBody.slice(1);
-    }
-    
-    console.log('📝 Body bruto recebido:', {
-      length: rawBody.length,
-      preview: rawBody.substring(0, 100) + '...'
-    })
-    
-    // Validar assinatura HMAC
-    const assinaturaValida = validarAssinatura(rawBody, signature)
-    if (!assinaturaValida) {
+    // Validar assinatura
+    if (!validarAssinatura(rawBody.toString('utf8'), signature)) {
       console.error('❌ Assinatura HMAC inválida')
       return res.status(401).json({ error: 'Assinatura HMAC inválida' })
     }
 
-    // Parse do JSON após validação
-    const data = JSON.parse(rawBody)
-    
-    // Validar estrutura dos dados
+    console.log('✅ Assinatura HMAC validada com sucesso!')
+
+    // Parse do corpo da requisição
+    const data: HotmartWebhookData = JSON.parse(rawBody.toString('utf8'))
+    console.log('📦 Dados do webhook (parsed):', JSON.stringify(data, null, 2))
+
+    // Validar estrutura do webhook
     if (!validarEstrutura(data)) {
-      console.error('❌ Estrutura de dados inválida:', data)
-      return res.status(400).json({ error: 'Estrutura de dados inválida' })
+      console.error('❌ Estrutura do webhook inválida')
+      return res.status(400).json({ error: 'Estrutura do webhook inválida' })
     }
 
-    console.log('✅ Webhook validado, processando...')
-
-    // Processar baseado no evento
+    // Processar evento
     switch (data.event) {
       case 'PURCHASE_APPROVED':
+      case 'PURCHASE_COMPLETE':
         const resultado = await processarCompraAprovada(data)
-        
-        if (!resultado.success) {
-          console.error('❌ Erro ao processar compra:', resultado.error)
-          return res.status(500).json({ 
-            error: 'Erro ao processar compra',
-            details: resultado.error 
-          })
+        if (resultado.success) {
+          res.status(200).json({ message: 'Compra processada com sucesso' })
+        } else {
+          res.status(500).json({ error: resultado.error })
         }
-        
-        console.log('✅ Compra processada com sucesso!')
-        return res.status(200).json({
-          success: true,
-          message: resultado.message,
-          event: data.event,
-          order_id: data.data.purchase.order_id,
-          user_created: resultado.user_created
-        })
-        
+        break
       default:
-        console.log('ℹ️ Evento não processado:', data.event)
-        return res.status(200).json({
-          success: true,
-          message: 'Evento recebido mas não processado',
-          event: data.event
-        })
+        console.log(`🔔 Evento ${data.event} recebido, mas não processado.`)
+        res.status(200).json({ message: 'Evento não processado' })
     }
-
   } catch (error) {
-    console.error('❌ Erro no webhook:', error)
-    return res.status(500).json({ 
-      error: 'Erro interno do servidor',
-      details: (error as Error).message 
-    })
+    console.error('💥 Erro inesperado no webhook:', error)
+    res.status(500).json({ error: 'Erro interno no servidor' })
+  } finally {
+    console.log('--- FIM DA REQUISIÇÃO WEBHOOK ---')
   }
 }

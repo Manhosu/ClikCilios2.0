@@ -13,9 +13,9 @@ if (!secret) {
 
 const hmac = crypto.createHmac('sha256', secret);
 hmac.update(payload, 'utf8');
-const signature = 'sha256=' + hmac.digest('hex');
+const signature = hmac.digest('hex');
 
-const url = 'https://clik-cilios2-0.vercel.app/api/debug-webhook-main';
+const url = 'https://clik-cilios2-0.vercel.app/api/hotmart-webhook-raw';
 
 console.log('Enviando requisição para:', url);
 // console.log('Payload:', payload);

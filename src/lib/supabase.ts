@@ -44,19 +44,15 @@ export interface Database {
           id: string
           email: string
           nome: string
-          tipo: 'profissional' | 'admin'
-          auth_user_id: string
           created_at: string
           updated_at: string
           is_admin?: boolean
           onboarding_completed?: boolean
         }
         Insert: {
-          id?: string
+          id: string
           email: string
           nome: string
-          tipo?: 'profissional' | 'admin'
-          auth_user_id: string
           created_at?: string
           updated_at?: string
           is_admin?: boolean
@@ -66,8 +62,6 @@ export interface Database {
           id?: string
           email?: string
           nome?: string
-          tipo?: 'profissional' | 'admin'
-          auth_user_id?: string
           created_at?: string
           updated_at?: string
           is_admin?: boolean
@@ -175,4 +169,4 @@ export interface Database {
       }
     }
   }
-} 
+}

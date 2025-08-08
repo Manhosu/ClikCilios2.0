@@ -10,8 +10,7 @@ import ClientesPage from './pages/ClientesPage'
 import ConfiguracoesPage from './pages/ConfiguracoesPage'
 import AdminCuponsPage from './pages/AdminCuponsPage'
 import AdminRelatorioCuponsPage from './pages/AdminRelatorioCuponsPage'
-import AdminWebhookTestePage from './pages/AdminWebhookTestePage'
-import AdminTestePage from './pages/AdminTestePage'
+// Páginas de teste removidas para produção
 import AdminEmailsPage from './pages/AdminEmailsPage'
 import ParceriasPage from './pages/ParceriasPage'
 import WelcomeModal from './components/WelcomeModal'
@@ -81,22 +80,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/admin/webhook-teste" 
-            element={
-              <ProtectedRoute>
-                <AdminWebhookTestePage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/testes" 
-            element={
-              <ProtectedRoute>
-                <AdminTestePage />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Rotas de teste removidas para produção */}
           <Route 
             path="/admin/emails" 
             element={
@@ -115,4 +99,4 @@ function App() {
   )
 }
 
-export default App 
+export default App

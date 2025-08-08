@@ -140,10 +140,7 @@ export const applyEyelashOverlayWithSpline = async (
   eyeWidth: number
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
-    console.log(`🚀 Aplicando overlay com spline - ${isRightEye ? 'Direito' : 'Esquerdo'}`)
-    console.log(`🎨 Estilo: ${styleId}`)
-    console.log(`📏 Largura do olho: ${eyeWidth.toFixed(1)}px`)
-    console.log(`👁️ Landmarks: ${eyelidLandmarks.length} pontos`)
+    // Aplicando overlay com spline - logs removidos para produção
     
     const overlayImg = new Image()
     overlayImg.crossOrigin = 'anonymous'
@@ -152,7 +149,7 @@ export const applyEyelashOverlayWithSpline = async (
       try {
         // 1. 🌊 Gera curva spline suave da pálpebra superior
         const splineCurve = generateEyelidSplineCurve(eyelidLandmarks, 25)
-        console.log(`🌊 Curva spline gerada: ${splineCurve.length} pontos`)
+        // Curva spline gerada - log removido para produção
         
         // 2. 📐 Calcula ângulo de inclinação do olho
         const innerCorner = eyelidLandmarks[0]
@@ -172,8 +169,7 @@ export const applyEyelashOverlayWithSpline = async (
         const scaleX = targetWidth / overlayImg.width
         const scaleY = targetHeight / overlayImg.height
         
-        console.log(`📏 Escala calculada: ${scaleX.toFixed(3)}x (largura), ${scaleY.toFixed(3)}x (altura)`)
-        console.log(`📐 Ângulo do olho: ${(eyeAngle * 180 / Math.PI).toFixed(1)}°`)
+        // Escala e ângulo calculados - logs removidos para produção
         
         // 5. 🎭 Configura blend mode e sombras
         ctx.save()
@@ -202,17 +198,17 @@ export const applyEyelashOverlayWithSpline = async (
         
         ctx.restore()
         
-        console.log('✅ Overlay aplicado com sucesso!')
+        // Overlay aplicado com sucesso
         resolve()
         
       } catch (error) {
-        console.error('❌ Erro ao aplicar overlay:', error)
+        // Erro ao aplicar overlay (log removido para produção)
         reject(error)
       }
     }
     
     overlayImg.onerror = () => {
-      console.error(`❌ Erro ao carregar imagem do overlay: ${overlayImageUrl}`)
+      // Erro ao carregar imagem do overlay (log removido para produção)
       reject(new Error(`Falha ao carregar overlay: ${overlayImageUrl}`))
     }
     
@@ -245,8 +241,7 @@ const applySplineBasedDeformation = (
   const anchorX = centerPoint.x - transformedWidth / 2
   const anchorY = centerPoint.y - transformedHeight * 0.2 // 20% acima da linha da pálpebra
   
-  console.log(`🎯 Ancoragem: (${anchorX.toFixed(1)}, ${anchorY.toFixed(1)})`)
-  console.log(`📐 Dimensões transformadas: ${transformedWidth.toFixed(1)} x ${transformedHeight.toFixed(1)}`)
+  // Ancoragem e dimensões transformadas - logs removidos para produção
   
   // Aplica transformações
   ctx.save()

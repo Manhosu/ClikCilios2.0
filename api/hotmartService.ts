@@ -109,11 +109,7 @@ export class HotmartService {
     try {
       const { data: { purchase } } = webhookData
 
-      console.log('🚀 Processando webhook Hotmart:', {
-        order_id: purchase.order_id,
-        buyer_email: purchase.buyer.email,
-        status: purchase.status
-      })
+      // Processando webhook Hotmart - log removido para produção
 
       // Verificar se o status libera acesso
       if (!HOTMART_CONFIG.validStatuses.includes(purchase.status)) {
@@ -165,7 +161,7 @@ export class HotmartService {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao processar webhook:', error)
+      // Erro ao processar webhook - log removido para produção
       return {
         success: false,
         message: 'Erro interno no processamento',
@@ -264,11 +260,11 @@ export class HotmartService {
         })
 
       if (profileError) {
-        console.error('❌ Erro ao criar perfil:', profileError)
+        // Erro ao criar perfil - log removido para produção
         // Não falhar o processo por isso
       }
 
-      console.log('✅ Usuário criado:', { email, user_id: authData.user.id })
+      // Usuário criado - log removido para produção
 
       return {
         success: true,
@@ -278,7 +274,7 @@ export class HotmartService {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao criar usuário:', error)
+      // Erro ao criar usuário - log removido para produção
       return {
         success: false,
         created: false,
@@ -324,12 +320,7 @@ export class HotmartService {
         }
       }
 
-      console.log('✅ Cupom registrado:', {
-        cupom: codigoCupom,
-        cliente: emailCliente,
-        valor: valorVenda,
-        uso_id: uso.id
-      })
+      // Cupom registrado - log removido para produção
 
       return {
         success: true,
@@ -337,7 +328,7 @@ export class HotmartService {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao registrar cupom:', error)
+      // Erro ao registrar cupom - log removido para produção
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro desconhecido'
@@ -385,10 +376,7 @@ export class HotmartService {
     try {
       const { data: { purchase } } = webhookData
 
-      console.log('🚫 Processando cancelamento:', {
-        order_id: purchase.order_id,
-        buyer_email: purchase.buyer.email
-      })
+      // Processando cancelamento - log removido para produção
 
       // Por enquanto, apenas registrar o cancelamento
       // Futuramente: desativar acesso, marcar cupom como cancelado, etc.
@@ -399,7 +387,7 @@ export class HotmartService {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao processar cancelamento:', error)
+      // Erro ao processar cancelamento - log removido para produção
       return {
         success: false,
         message: 'Erro ao processar cancelamento',

@@ -12,11 +12,9 @@ const LoginPage = () => {
   const [successMessage, setSuccessMessage] = useState('')
   
   const { login, register, resetPassword, isAuthenticated } = useAuth()
-  console.log('🔐 LoginPage: isAuthenticated =', isAuthenticated)
 
   // Redirecionar se já autenticado
   if (isAuthenticated) {
-    console.log('✅ LoginPage: Usuário já autenticado, redirecionando para dashboard')
     window.location.href = '/dashboard'
     return null
   }

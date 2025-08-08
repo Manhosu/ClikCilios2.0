@@ -17,30 +17,7 @@ const AplicarCiliosPage = () => {
   
   const estilosCilios = getEstilosCilios()
 
-  // Debug: verificar se os estilos estão sendo carregados
-  useEffect(() => {
-    console.log('🔍 Debug - Estilos carregados:', estilosCilios)
-    console.log('🔍 Debug - Quantidade de estilos:', estilosCilios.length)
-    
-    // Força um log muito visível no console
-    setTimeout(() => {
-      console.log('🚨 SISTEMA CARREGADO! Estilos disponíveis:', estilosCilios.length)
-      console.table(estilosCilios.map(e => ({ 
-        id: e.id, 
-        nome: e.nome, 
-        thumbnail: e.thumbnail 
-      })))
-    }, 1000)
-  }, [])
-
-  // Debug: Log sempre que o estilo muda
-  useEffect(() => {
-    console.log('🎯 ESTILO SELECIONADO MUDOU:', estiloSelecionado)
-    if (estiloSelecionado) {
-      const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
-      console.log('📄 Detalhes do estilo:', estilo)
-    }
-  }, [estiloSelecionado, estilosCilios])
+  // Logs de debug removidos para produção
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -70,26 +47,14 @@ const AplicarCiliosPage = () => {
       }
       reader.readAsDataURL(file)
       
-      console.log('📂 Arquivo carregado:', {
-        nome: file.name,
-        tamanho: (file.size / 1024 / 1024).toFixed(2) + 'MB',
-        tipo: file.type
-      })
+      // Arquivo carregado com sucesso
     }
   }
 
   const handleEstiloClick = useCallback((estiloId: string) => {
-    console.log('🎨 CLIQUE NO ESTILO:', estiloId)
-    console.log('🔄 Estado anterior:', estiloSelecionado)
-    
-    // Atualiza o estado
     setEstiloSelecionado(estiloId)
     
-    console.log('✅ Estado atualizado para:', estiloId)
-    
-    // Força o resultado a ser limpo para mostrar mudança
     if (resultado) {
-      console.log('🧹 Limpando resultado anterior')
       setResultado(null)
     }
   }, [estiloSelecionado, resultado])
@@ -137,7 +102,7 @@ const AplicarCiliosPage = () => {
       reader.readAsDataURL(blob)
 
     } catch (error: any) {
-      console.error('💥 Erro ao processar:', error)
+      // Erro no processamento
       setErro(error.message || 'Erro interno. Tente novamente.')
       setResultado({
         imagemOriginal: imagemOriginal!,
@@ -269,7 +234,6 @@ const AplicarCiliosPage = () => {
                     <button
                       key={estilo.id}
                       onClick={() => {
-                        console.log('🔥 CLICK DIRETO NO BOTÃO:', estilo.id)
                         handleEstiloClick(estilo.id)
                       }}
                       className={`p-4 rounded-2xl border-2 transition-all hover:scale-105 group relative overflow-hidden ${
@@ -284,9 +248,8 @@ const AplicarCiliosPage = () => {
                           src={estilo.overlayPath}
                           alt={`Preview ${estilo.nome}`}
                           className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform"
-                          onLoad={() => console.log(`✅ Preview carregado: ${estilo.nome}`)}
+                          onLoad={() => {}}
                           onError={(e) => {
-                            console.error(`❌ Erro ao carregar preview: ${estilo.nome}`)
                             // Fallback para emoji se o PNG não carregar
                             e.currentTarget.style.display = 'none'
                             e.currentTarget.nextElementSibling?.classList.remove('hidden')
@@ -413,8 +376,8 @@ const AplicarCiliosPage = () => {
                         src={resultado.imagemProcessada}
                         alt="Resultado com cílios aplicados"
                         className="w-full rounded-2xl shadow-lg group-hover:shadow-xl transition-shadow"
-                        onLoad={() => console.log('🖼️ Imagem do resultado carregada com sucesso!')}
-                        onError={() => console.error('❌ Erro ao carregar imagem do resultado')}
+                        onLoad={() => {}}
+                        onError={() => {}}
                       />
                     ) : (
                       <div className="w-full aspect-square bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl flex items-center justify-center border border-yellow-200">

@@ -29,92 +29,7 @@ const Dashboard = () => {
   // Criar dados de exemplo se não existirem (apenas em desenvolvimento)
   useEffect(() => {
     if (!userLoading && user?.id) {
-      const criarDadosExemplo = () => {
-        const clientes = localStorage.getItem('ciliosclick_clientes')
-        const imagens = localStorage.getItem('ciliosclick_imagens')
-
-        if (!clientes) {
-          const clientesExemplo = [
-            {
-              id: 'cliente_exemplo_1',
-              nome: 'Maria Silva',
-              email: 'maria@email.com',
-              telefone: '(11) 99999-9999',
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'cliente_exemplo_2',
-              nome: 'Ana Santos',
-              email: 'ana@email.com',
-              telefone: '(11) 88888-8888',
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'cliente_exemplo_3',
-              nome: 'Julia Oliveira',
-              email: 'julia@email.com',
-              telefone: '(11) 77777-7777',
-              created_at: new Date().toISOString()
-            }
-          ]
-          localStorage.setItem('ciliosclick_clientes', JSON.stringify(clientesExemplo))
-          console.log('📁 Dados de exemplo de clientes criados')
-        }
-
-        if (!imagens) {
-          const imagensExemplo = [
-            {
-              id: 'imagem_exemplo_1',
-              nome_arquivo: 'cliente_maria_01.jpg',
-              url_original: 'https://picsum.photos/400/400?random=1',
-              url_processada: 'https://picsum.photos/400/400?random=2',
-              estilo_aplicado: 'Volume Brasileiro D',
-              cliente_nome: 'Maria Silva',
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'imagem_exemplo_2',
-              nome_arquivo: 'cliente_ana_01.jpg',
-              url_original: 'https://picsum.photos/400/400?random=3',
-              url_processada: 'https://picsum.photos/400/400?random=4',
-              estilo_aplicado: 'Volume Russo D',
-              cliente_nome: 'Ana Santos',
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'imagem_exemplo_3',
-              nome_arquivo: 'cliente_julia_01.jpg',
-              url_original: 'https://picsum.photos/400/400?random=5',
-              url_processada: 'https://picsum.photos/400/400?random=6',
-              estilo_aplicado: 'Fox Eyes',
-              cliente_nome: 'Julia Oliveira',
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'imagem_exemplo_4',
-              nome_arquivo: 'cliente_maria_02.jpg',
-              url_original: 'https://picsum.photos/400/400?random=7',
-              url_processada: 'https://picsum.photos/400/400?random=8',
-              estilo_aplicado: 'Boneca',
-              cliente_nome: 'Maria Silva',
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'imagem_exemplo_5',
-              nome_arquivo: 'cliente_ana_02.jpg',
-              url_original: 'https://picsum.photos/400/400?random=9',
-              url_processada: 'https://picsum.photos/400/400?random=10',
-              estilo_aplicado: 'Volume Egípcio 3D D',
-              cliente_nome: 'Ana Santos',
-              created_at: new Date().toISOString()
-            }
-          ]
-          localStorage.setItem('ciliosclick_imagens', JSON.stringify(imagensExemplo))
-          console.log('📁 Dados de exemplo de imagens criados')
-        }
-      }
-
-      criarDadosExemplo()
+      // Dados de exemplo removidos para produção
     }
   }, [user, userLoading])
 
@@ -123,13 +38,10 @@ const Dashboard = () => {
       setLoading(true)
       
       if (!user?.id) {
-        console.log('🚫 Dashboard: user.id não encontrado')
         setTotalClientes(0)
         setTotalImagens(0)
         return
       }
-
-      console.log('📊 Dashboard: carregando dados para user:', user.id)
 
       // Carregar dados em paralelo
       const [clientes, imagens] = await Promise.all([
@@ -137,17 +49,9 @@ const Dashboard = () => {
         imagensService.listar(user.id)
       ])
 
-      console.log('📊 Dashboard: dados carregados', {
-        totalClientes: clientes.length,
-        totalImagens: imagens.length,
-        clientes: clientes,
-        imagens: imagens
-      })
-
       setTotalClientes(clientes.length)
       setTotalImagens(imagens.length)
     } catch (error) {
-      console.error('❌ Erro ao carregar dados do dashboard:', error)
       setTotalClientes(0)
       setTotalImagens(0)
     } finally {
@@ -157,16 +61,13 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     try {
-      console.log('🚪 Dashboard: Iniciando logout...')
       await logout()
-      console.log('🚪 Dashboard: Logout concluído, redirecionando...')
       
       // Pequeno delay para garantir que o estado seja atualizado
       setTimeout(() => {
         window.location.href = '/login'
       }, 100)
     } catch (error) {
-      console.error('❌ Erro no logout:', error)
       // Mesmo com erro, redirecionar
       setTimeout(() => {
         window.location.href = '/login'
@@ -275,28 +176,7 @@ const Dashboard = () => {
                     {sidebarOpen && <span className="ml-3">Relatório Cupons</span>}
                   </button>
                 </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/admin/webhook-teste')}
-                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                      <span className="text-lg">🧪</span>
-                    </div>
-                    {sidebarOpen && <span className="ml-3">Teste Webhook</span>}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/admin/testes')}
-                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                      <span className="text-lg">🔍</span>
-                    </div>
-                    {sidebarOpen && <span className="ml-3">Testes Sistema</span>}
-                  </button>
-                </li>
+                {/* Botões de teste removidos para produção */}
                 <li>
                   <button
                     onClick={() => navigate('/admin/emails')}
@@ -442,4 +322,4 @@ const Dashboard = () => {
   )
 }
 
-export default Dashboard 
+export default Dashboard

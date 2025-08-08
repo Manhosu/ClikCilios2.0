@@ -45,11 +45,7 @@ interface HotmartWebhookData {
 // Validar assinatura HMAC
 function validarAssinatura(body: string, signature: string): boolean {
   try {
-    console.log('🔐 Validando HMAC:', {
-      bodyLength: body.length,
-      signature: signature,
-      secret: HOTMART_CONFIG.webhookSecret ? 'PRESENTE' : 'AUSENTE'
-    })
+    // Validação HMAC - logs removidos para produção
     
     const expectedSignature = crypto
       .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
@@ -58,18 +54,14 @@ function validarAssinatura(body: string, signature: string): boolean {
     
     const receivedSignature = signature.replace('sha256=', '')
     
-    console.log('🔐 Comparando assinaturas:', {
-      expected: expectedSignature,
-      received: receivedSignature,
-      match: expectedSignature === receivedSignature
-    })
+    // Comparação de assinaturas - logs removidos para produção
     
     return crypto.timingSafeEqual(
       Buffer.from(expectedSignature, 'hex'),
       Buffer.from(receivedSignature, 'hex')
     )
   } catch (error) {
-    console.error('❌ Erro na validação HMAC:', error)
+    // Erro na validação HMAC - log removido para produção
     return false
   }
 }
@@ -153,11 +145,7 @@ async function processarWebhook(webhookData: HotmartWebhookData) {
   try {
     const { data: { purchase } } = webhookData
 
-    console.log('🚀 Processando webhook Hotmart:', {
-      order_id: purchase.order_id,
-      buyer_email: purchase.buyer.email,
-      status: purchase.status
-    })
+    // Processando webhook Hotmart - log removido para produção
 
     // Verificar se o status libera acesso
     if (!HOTMART_CONFIG.validStatuses.includes(purchase.status)) {
@@ -188,7 +176,7 @@ async function processarWebhook(webhookData: HotmartWebhookData) {
     }
 
   } catch (error) {
-    console.error('❌ Erro ao processar webhook:', error)
+    // Erro ao processar webhook - log removido para produção
     return {
       success: false,
       message: 'Erro interno no processamento',
@@ -215,12 +203,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    console.log('🚀 Webhook Hotmart recebido')
+    // Webhook Hotmart recebido - log removido para produção
     
     // Validar headers
     const signature = req.headers['x-hotmart-signature'] as string
     if (!signature) {
-      console.error('❌ Assinatura HMAC não encontrada')
+      // Assinatura HMAC não encontrada - log removido para produção
       return res.status(401).json({ error: 'Assinatura HMAC necessária' })
     }
 
@@ -230,17 +218,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validar assinatura HMAC
     const assinaturaValida = validarAssinatura(body, signature)
     if (!assinaturaValida) {
-      console.error('❌ Assinatura HMAC inválida')
+      // Assinatura HMAC inválida - log removido para produção
       return res.status(401).json({ error: 'Assinatura HMAC inválida' })
     }
 
     // Validar estrutura dos dados
     if (!validarEstrutura(req.body)) {
-      console.error('❌ Estrutura de dados inválida:', req.body)
+      // Estrutura de dados inválida - log removido para produção
       return res.status(400).json({ error: 'Estrutura de dados inválida' })
     }
 
-    console.log('✅ Webhook validado, processando...')
+    // Webhook validado, processando - log removido para produção
 
     // Processar webhook baseado no evento
     let resultado
@@ -255,27 +243,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'PURCHASE_CANCELED':
       case 'PURCHASE_REFUNDED':
       case 'PURCHASE_CHARGEBACK':
-        console.log(`ℹ️ Evento ${evento} recebido mas não processado`)
+        // Evento recebido mas não processado - log removido para produção
         return res.status(200).json({ 
           message: `Evento ${evento} recebido mas não processado` 
         })
       
       default:
-        console.log(`ℹ️ Evento ${evento} ignorado`)
+        // Evento ignorado - log removido para produção
         return res.status(200).json({ 
           message: `Evento ${evento} recebido mas não processado` 
         })
     }
 
     if (resultado.success) {
-      console.log('✅ Webhook processado com sucesso:', resultado)
+      // Webhook processado com sucesso - log removido para produção
       return res.status(200).json({
         success: true,
         message: resultado.message,
         data: resultado.data
       })
     } else {
-      console.error('❌ Erro no processamento:', resultado)
+      // Erro no processamento - log removido para produção
       return res.status(400).json({
         success: false,
         message: resultado.message,
@@ -284,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
   } catch (error) {
-    console.error('❌ Erro interno no webhook:', error)
+    // Erro interno no webhook - log removido para produção
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor',

@@ -149,7 +149,7 @@ export class HotmartService {
         if (cupomResult.success) {
           usoCupomId = cupomResult.uso_id
         } else {
-          console.warn('⚠️ Erro ao registrar cupom:', cupomResult.error)
+          // Erro ao registrar cupom (log removido para produção)
         }
       }
 
@@ -165,7 +165,7 @@ export class HotmartService {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao processar webhook:', error)
+      // Erro ao processar webhook (log removido para produção)
       return {
         success: false,
         message: 'Erro interno no processamento',

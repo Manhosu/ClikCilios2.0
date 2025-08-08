@@ -23,7 +23,7 @@ class ClientesLocalStorage {
       const dados = localStorage.getItem(STORAGE_KEY)
       return dados ? JSON.parse(dados) : []
     } catch (error) {
-      console.warn('Erro ao carregar clientes do localStorage:', error)
+      // Erro ao carregar clientes do localStorage - log removido para produção
       return []
     }
   }
@@ -32,8 +32,8 @@ class ClientesLocalStorage {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(clientes))
     } catch (error) {
-      console.error('Erro ao salvar clientes no localStorage:', error)
-    }
+    // Erro ao salvar clientes no localStorage - log removido para produção
+  }
   }
 
   async listar(): Promise<Cliente[]> {
@@ -86,7 +86,7 @@ const clientesLocal = new ClientesLocalStorage()
 export const clientesService = {
   async listar(userId: string): Promise<Cliente[]> {
     if (isDevMode) {
-      console.info('🔧 Modo desenvolvimento - carregando clientes do localStorage')
+      // Modo desenvolvimento - carregando clientes do localStorage
       return await clientesLocal.listar()
     }
 
@@ -100,14 +100,14 @@ export const clientesService = {
       if (error) throw error
       return data || []
     } catch (error) {
-      console.error('Erro ao carregar clientes:', error)
+      // Erro ao carregar clientes (log removido para produção)
       throw error
     }
   },
 
   async criar(userId: string, dadosCliente: Omit<Cliente, 'id' | 'created_at'>): Promise<Cliente> {
     if (isDevMode) {
-      console.info('🔧 Modo desenvolvimento - salvando cliente no localStorage')
+      // Modo desenvolvimento - salvando cliente no localStorage - log removido para produção
       return await clientesLocal.criar(dadosCliente)
     }
 
@@ -128,14 +128,14 @@ export const clientesService = {
       if (error) throw error
       return data
     } catch (error) {
-      console.error('Erro ao criar cliente:', error)
-      throw error
-    }
+    // Erro ao criar cliente - log removido para produção
+    throw error
+  }
   },
 
   async atualizar(id: string, dadosCliente: Partial<Cliente>): Promise<Cliente | null> {
     if (isDevMode) {
-      console.info('🔧 Modo desenvolvimento - atualizando cliente no localStorage')
+      // Modo desenvolvimento - atualizando cliente no localStorage - log removido para produção
       return await clientesLocal.atualizar(id, dadosCliente)
     }
 
@@ -156,14 +156,14 @@ export const clientesService = {
       if (error) throw error
       return data
     } catch (error) {
-      console.error('Erro ao atualizar cliente:', error)
-      throw error
-    }
+    // Erro ao atualizar cliente - log removido para produção
+    throw error
+  }
   },
 
   async excluir(id: string): Promise<boolean> {
     if (isDevMode) {
-      console.info('🔧 Modo desenvolvimento - excluindo cliente do localStorage')
+      // Modo desenvolvimento - excluindo cliente do localStorage - log removido para produção
       return await clientesLocal.excluir(id)
     }
 
@@ -176,8 +176,8 @@ export const clientesService = {
       if (error) throw error
       return true
     } catch (error) {
-      console.error('Erro ao excluir cliente:', error)
-      throw error
-    }
+    // Erro ao excluir cliente - log removido para produção
+    throw error
+  }
   }
 }

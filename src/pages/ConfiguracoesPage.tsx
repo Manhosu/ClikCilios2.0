@@ -46,7 +46,7 @@ const ConfiguracoesPage: React.FC = () => {
       const configuracoes = await configuracoesService.carregar(user.id)
       setConfiguracoes(configuracoes)
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error)
+      // Erro ao carregar configurações - log removido para produção
     } finally {
       setLoading(false)
     }
@@ -66,7 +66,7 @@ const ConfiguracoesPage: React.FC = () => {
 
       alert('✅ Configurações salvas com sucesso!')
     } catch (error) {
-      console.error('Erro ao salvar configurações:', error)
+      // Erro ao salvar configurações - log removido para produção
       alert('❌ Erro ao salvar configurações')
     } finally {
       setSalvando(false)
@@ -102,7 +102,7 @@ const ConfiguracoesPage: React.FC = () => {
 
       if (isDevMode) {
         // Modo desenvolvimento - simular atualização
-        console.log('🔧 Modo desenvolvimento: simulando atualização de perfil')
+        // Modo desenvolvimento: simulando atualização
         
         // Atualizar dados no localStorage para consistência
         const dadosUser = localStorage.getItem('ciliosclick_user')
@@ -134,7 +134,7 @@ const ConfiguracoesPage: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error)
+      // Erro ao salvar perfil - log removido para produção
       alert('❌ Erro ao salvar dados da conta')
     } finally {
       setSalvandoPerfil(false)
@@ -151,16 +151,14 @@ const ConfiguracoesPage: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      console.log('🚪 Configurações: Iniciando logout...')
       await logout()
-      console.log('🚪 Configurações: Logout concluído, redirecionando...')
       
       // Pequeno delay para garantir que o estado seja atualizado
       setTimeout(() => {
         window.location.href = '/login'
       }, 100)
     } catch (error) {
-      console.error('❌ Erro no logout:', error)
+      // Erro no logout
       // Mesmo com erro, redirecionar
       setTimeout(() => {
         window.location.href = '/login'
@@ -419,4 +417,4 @@ const ConfiguracoesPage: React.FC = () => {
   )
 }
 
-export default ConfiguracoesPage 
+export default ConfiguracoesPage

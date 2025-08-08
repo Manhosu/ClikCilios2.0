@@ -135,23 +135,23 @@ const loadFaceApiModels = async (): Promise<boolean> => {
 
   try {
     // 1️⃣ Tenta MediaPipe Face Mesh primeiro (mais preciso)
-    console.log('🤖 Tentando carregar MediaPipe Face Mesh...')
+    // Log removido para produção
     
     try {
       mediaPipeAvailable = await initializeFaceMesh()
       
       if (mediaPipeAvailable) {
-        console.log('✅ MediaPipe Face Mesh carregado com sucesso!')
+        // Log removido para produção
         modelsLoaded = true
         return true
       }
     } catch (mediaPipeError) {
-      console.warn('⚠️ MediaPipe não disponível:', mediaPipeError)
+      // Log removido para produção
       mediaPipeAvailable = false
     }
 
     // 2️⃣ Fallback para face-api.js se MediaPipe falhar
-    console.log('🔄 Tentando carregar face-api.js...')
+    // Log removido para produção
     
     try {
       // Testa primeiro se os modelos estão disponíveis
@@ -165,15 +165,15 @@ const loadFaceApiModels = async (): Promise<boolean> => {
       
       modelsLoaded = true
       modelsAvailable = true
-      console.log('✅ Modelos face-api.js carregados como fallback!')
+      // Log removido para produção
       return true
       
     } catch (faceApiError) {
-      console.warn('⚠️ face-api.js não disponível:', faceApiError)
+      // Log removido para produção
       
       // 3️⃣ Tenta carregar de CDN como último recurso
       try {
-        console.log('🌐 Tentando carregar modelos de CDN...')
+        // Log removido para produção
         await Promise.race([
           Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
@@ -184,23 +184,23 @@ const loadFaceApiModels = async (): Promise<boolean> => {
         
         modelsLoaded = true
         modelsAvailable = true
-        console.log('✅ Modelos face-api.js carregados da CDN!')
+        // Log removido para produção
         return true
         
       } catch (cdnError) {
-        console.warn('⚠️ CDN também falhou:', cdnError)
+        // Log removido para produção
       }
     }
     
     // 4️⃣ Se tudo falhar, continua sem modelos (usando fallback inteligente)
-    console.log('📊 Usando apenas fallback inteligente por histograma')
+    // Log removido para produção
     modelsLoaded = true
     modelsAvailable = false
     mediaPipeAvailable = false
     return false
     
   } catch (error) {
-    console.error('❌ Erro geral no carregamento dos modelos:', error)
+    // Log removido para produção - manter apenas para erros críticos se necessário
     modelsLoaded = true
     modelsAvailable = false
     mediaPipeAvailable = false
@@ -233,7 +233,7 @@ const getEyelashFileName = (styleId: string): string => {
  */
 const detectFacialLandmarks = async () => {
   // Temporariamente desabilitado para evitar erros
-  console.log('ℹ️ face-api.js temporariamente desabilitado, usando fallback inteligente')
+  // Log removido para produção
   return null
 }
 
@@ -1313,9 +1313,9 @@ export const applyEyelashesWithAdvancedCurvature = async (
   imageFile: File, 
   selectedStyle: string
 ): Promise<string> => {
-  console.log('🚀 NOVA VERSÃO: Aplicando cílios com curvatura avançada')
-  console.log(`📂 Arquivo: ${imageFile.name}`)
-  console.log(`🎨 Estilo: ${selectedStyle}`)
+  // Logs removidos para produção
+  // Arquivo: ${imageFile.name}
+  // Estilo: ${selectedStyle}
   
   return new Promise(async (resolve, reject) => {
     try {
@@ -1325,18 +1325,17 @@ export const applyEyelashesWithAdvancedCurvature = async (
       
       img.onload = async () => {
         try {
-          console.log(`🖼️ Imagem carregada: ${img.width}x${img.height}`)
+          // Log removido para produção - Imagem carregada
           
           // 2. 🎯 Detecta landmarks usando fallback inteligente
-          console.log('📊 Usando detecção inteligente por análise de histograma...')
+          // Log removido para produção
           const eyelidCurves = await calculateEyelidCurve(img, null)
           
           if (!eyelidCurves) {
             throw new Error('Não foi possível detectar landmarks dos olhos')
           }
           
-          console.log(`✅ Landmarks detectados usando: ${eyelidCurves.method}`)
-          console.log(`👁️ Confiança: ${(eyelidCurves.confidence * 100).toFixed(1)}%`)
+          // Logs removidos para produção - landmarks detectados
           
           // 3. 🎨 Prepara canvas
           const canvas = document.createElement('canvas')
@@ -1355,10 +1354,10 @@ export const applyEyelashesWithAdvancedCurvature = async (
           }
           
           const overlayUrl = estiloAtual.overlayPath
-          console.log(`🔗 Overlay URL: ${overlayUrl}`)
+          // Log removido para produção - Overlay URL
           
           // 5. 🌊 Aplica cílios com spline nos dois olhos
-          console.log('🌊 Aplicando overlay com curvatura inteligente...')
+          // Log removido para produção
           
           await applyEyelashOverlayWithSpline(
             ctx,
@@ -1380,13 +1379,12 @@ export const applyEyelashesWithAdvancedCurvature = async (
           
           // 6. ✅ Resultado final
           const result = canvas.toDataURL('image/jpeg', 0.92)
-          console.log('🎉 Processamento concluído com sucesso!')
-          console.log(`📊 Resultado: ${(result.length / 1024).toFixed(1)}KB`)
+          // Logs removidos para produção - processamento concluído
           
           resolve(result)
           
         } catch (error) {
-          console.error('❌ Erro no processamento:', error)
+          // Log removido para produção - erro no processamento
           reject(error)
         }
       }
@@ -1403,7 +1401,7 @@ export const applyEyelashesWithAdvancedCurvature = async (
       reader.readAsDataURL(imageFile)
       
     } catch (error) {
-      console.error('❌ Erro geral:', error)
+      // Log removido para produção - erro geral
       reject(error)
     }
   })
@@ -1411,7 +1409,7 @@ export const applyEyelashesWithAdvancedCurvature = async (
 
 // 🔄 Mantém função original como fallback
 export const applyEyelashes = async (imageFile: File, selectedStyle: string): Promise<string> => {
-  console.log(`🎯 Aplicando estilo com CURVATURA REAL DA PÁLPEBRA: ${selectedStyle}`)
+  // Log removido para produção - aplicando estilo
   
   return new Promise(async (resolve, reject) => {
     try {
@@ -1437,7 +1435,7 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
             throw new Error('Falha ao calcular landmarks dos olhos')
           }
           
-          console.log(`🎯 Método de curva usado: ${eyelidCurves.method}`)
+          // Log removido para produção - método de curva usado
           
           // 4. Cria canvas e aplica cílios seguindo as curvas
           const canvas = document.createElement('canvas')
@@ -1451,8 +1449,7 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
           const estilos = getEstilosCilios()
           const estiloAtual = estilos.find(e => e.id === selectedStyle)
           const eyelashUrl = estiloAtual?.overlayPath || `/assets/cilios/${getEyelashFileName(selectedStyle)}`
-          console.log(`📂 Carregando arquivo: ${eyelashUrl}`)
-          console.log(`🚨 DEBUG: Estilo encontrado:`, estiloAtual?.nome || 'NÃO ENCONTRADO')
+          // Logs removidos para produção - carregando arquivo e estilo encontrado
           
           // 🌊 VERSÃO APRIMORADA: Usa aplicação curva avançada
           await applyCurvedEyelashOverlay(
@@ -1471,15 +1468,15 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
             selectedStyle
           )
           
-          console.log('🎉 Cílios aplicados com CURVATURA REAL DA PÁLPEBRA!')
+          // Log removido para produção - cílios aplicados
           
           resolve(canvas.toDataURL('image/jpeg', 0.95))
           
         } catch (error) {
-          console.error('❌ Erro no processamento:', error)
+          // Log removido para produção - erro no processamento
           
           // 🔄 FALLBACK: Usa método tradicional em caso de erro
-          console.log('🔄 Tentando método fallback...')
+          // Log removido para produção - tentando fallback
           try {
             // Recalcula as curvas para o fallback
             let fallbackFaceData = null
@@ -1500,7 +1497,7 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
               const estilos = getEstilosCilios()
               const estiloAtual = estilos.find(e => e.id === selectedStyle)
               const eyelashUrl = estiloAtual?.overlayPath || `/assets/cilios/${getEyelashFileName(selectedStyle)}`
-              console.log(`📂 FALLBACK - Carregando arquivo: ${eyelashUrl}`)
+              // Log removido para produção - fallback carregando arquivo
               
               // Método fallback tradicional
               await drawEyelashAlongCurve(
@@ -1519,13 +1516,13 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
                 selectedStyle
               )
               
-              console.log('✅ Fallback aplicado com sucesso!')
+              // Log removido para produção - fallback aplicado
               resolve(canvas.toDataURL('image/jpeg', 0.95))
             } else {
               reject(error)
             }
           } catch (fallbackError) {
-            console.error('❌ Erro no fallback também:', fallbackError)
+            // Log removido para produção - erro no fallback
             reject(error)
           }
         }
@@ -1542,7 +1539,7 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
       reader.readAsDataURL(imageFile)
       
     } catch (error) {
-      console.error('❌ Erro geral:', error)
+      // Log removido para produção - erro geral
       reject(error)
     }
   })
@@ -1552,7 +1549,7 @@ export const applyEyelashes = async (imageFile: File, selectedStyle: string): Pr
  * 🎯 FUNÇÃO LEGADA: Mantida para compatibilidade
  */
 export const applyEyelashesLegacy = async (imageFile: File, selectedStyle: string): Promise<string> => {
-  console.log(`🎯 Aplicando estilo com método LEGADO: ${selectedStyle}`)
+  // Log removido para produção - aplicando estilo legado
   
   return new Promise(async (resolve, reject) => {
     try {
@@ -1578,7 +1575,7 @@ export const applyEyelashesLegacy = async (imageFile: File, selectedStyle: strin
             throw new Error('Falha ao calcular landmarks dos olhos')
           }
           
-          console.log(`🎯 Método de curva usado: ${eyelidCurves.method}`)
+          // Log removido para produção - método de curva usado
           
           // 4. Cria canvas e aplica cílios seguindo as curvas
           const canvas = document.createElement('canvas')
@@ -1592,8 +1589,7 @@ export const applyEyelashesLegacy = async (imageFile: File, selectedStyle: strin
           const estilos = getEstilosCilios()
           const estiloAtual = estilos.find(e => e.id === selectedStyle)
           const eyelashUrl = estiloAtual?.overlayPath || `/assets/cilios/${getEyelashFileName(selectedStyle)}`
-          console.log(`📂 LEGACY - Carregando arquivo: ${eyelashUrl}`)
-          console.log(`🚨 DEBUG LEGACY: Estilo encontrado:`, estiloAtual?.nome || 'NÃO ENCONTRADO')
+          // Logs removidos para produção - legacy carregando arquivo e estilo encontrado
           
           // Aplica cílios seguindo as curvas naturais (método legado)
           await drawEyelashAlongCurve(
@@ -1612,12 +1608,12 @@ export const applyEyelashesLegacy = async (imageFile: File, selectedStyle: strin
             selectedStyle
           )
           
-          console.log('🎉 Cílios aplicados seguindo CURVATURA NATURAL!')
+          // Log removido para produção - cílios aplicados
           
           resolve(canvas.toDataURL('image/jpeg', 0.95))
           
         } catch (error) {
-          console.error('❌ Erro no processamento:', error)
+          // Log removido para produção - erro no processamento
           reject(error)
         }
       }
@@ -1633,7 +1629,7 @@ export const applyEyelashesLegacy = async (imageFile: File, selectedStyle: strin
       reader.readAsDataURL(imageFile)
       
     } catch (error) {
-      console.error('❌ Erro geral:', error)
+      // Log removido para produção - erro geral
       reject(error)
     }
   })
@@ -1647,22 +1643,22 @@ export const applyLashes = async (
   styleId: string,
   onProgress?: (progress: number) => void
 ): Promise<ProcessamentoIA> => {
-  console.log('🎨 Aplicando cílios com curvatura real:', styleId, 'em', imageFile?.name)
+  // Log removido para produção - aplicando cílios
   const startTime = Date.now()
   
   try {
     onProgress?.(10)
     
     // 🚀 USA NOVA VERSÃO com MediaPipe + spline + blend modes
-    console.log('🚀 Usando versão aprimorada com curvatura real...')
+    // Log removido para produção - usando versão aprimorada
     let resultado: string
     
     try {
       resultado = await applyEyelashesWithAdvancedCurvature(imageFile, styleId)
       onProgress?.(90)
-      console.log('✅ Versão aprimorada executada com sucesso!')
+      // Log removido para produção - versão aprimorada executada
     } catch (advancedError) {
-      console.warn('⚠️ Versão aprimorada falhou, usando fallback:', advancedError)
+      // Log removido para produção - versão aprimorada falhou
       onProgress?.(50)
       resultado = await applyEyelashes(imageFile, styleId)
       onProgress?.(90)
@@ -1686,7 +1682,7 @@ export const applyLashes = async (
       }
     }
   } catch (error) {
-    console.error('❌ Erro completo no processamento:', error)
+    // Log removido para produção - erro completo no processamento
     return {
       imagemOriginal: URL.createObjectURL(imageFile),
       estiloSelecionado: styleId,
@@ -1712,161 +1708,23 @@ export const downloadProcessedImage = (
     link.click()
     document.body.removeChild(link)
     
-    console.log(`📥 Download iniciado: ${nomeArquivo}.jpg`)
+    // Log removido para produção - download iniciado
   } catch (error) {
-    console.error('❌ Erro no download:', error)
+    // Log removido para produção - erro no download
     alert('Erro ao fazer download da imagem')
   }
 }
 
 /**
- * 🔧 FUNÇÃO DE DEBUG: Testa aplicação básica dos cílios
+ * 🔧 FUNÇÃO DE DEBUG: Removida para produção
  */
-export const debugEyelashApplication = async (imageFile: File, styleId: string = 'brasileiro-boneca'): Promise<{
-  success: boolean,
-  logs: string[],
-  imageResult?: string,
-  error?: string
-}> => {
-  const logs: string[] = []
-  
-  try {
-    logs.push(`🚀 Iniciando debug para estilo: ${styleId}`)
-    
-    // 1. Verificar se arquivo existe
-    if (!imageFile) {
-      logs.push(`❌ Arquivo não fornecido`)
-      return { success: false, logs, error: 'Arquivo não fornecido' }
-    }
-    
-    logs.push(`📂 Arquivo: ${imageFile.name} (${(imageFile.size / 1024 / 1024).toFixed(2)}MB)`)
-    
-    // 2. Verificar se estilo existe
-    const estilos = getEstilosCilios()
-    const estiloEncontrado = estilos.find(e => e.id === styleId)
-    if (!estiloEncontrado) {
-      logs.push(`❌ Estilo '${styleId}' não encontrado`)
-      logs.push(`✅ Estilos disponíveis: ${estilos.map(e => e.id).join(', ')}`)
-      return { success: false, logs, error: `Estilo '${styleId}' não encontrado` }
-    }
-    
-    logs.push(`✅ Estilo encontrado: ${estiloEncontrado.nome}`)
-    logs.push(`📂 Overlay path: ${estiloEncontrado.overlayPath}`)
-    
-    // 3. Verificar mapeamento de arquivo
-    const fileName = getEyelashFileName(styleId)
-    logs.push(`📄 Arquivo mapeado: ${fileName}`)
-    
-    // 4. Testar carregamento da imagem original
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    
-    const imageLoadResult = await new Promise<boolean>((resolve) => {
-      img.onload = () => {
-        logs.push(`✅ Imagem original carregada: ${img.width}x${img.height}`)
-        resolve(true)
-      }
-      img.onerror = () => {
-        logs.push(`❌ Erro ao carregar imagem original`)
-        resolve(false)
-      }
-      
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        img.src = e.target?.result as string
-      }
-      reader.readAsDataURL(imageFile)
-    })
-    
-    if (!imageLoadResult) {
-      return { success: false, logs, error: 'Falha ao carregar imagem original' }
-    }
-    
-    // 5. Testar carregamento da imagem dos cílios
-    // 🔧 CORREÇÃO DEBUG: Usa overlayPath diretamente do estilo
-    const overlayUrl = estiloEncontrado.overlayPath
-    logs.push(`🔗 Testando URL do overlay: ${overlayUrl}`)
-    logs.push(`📄 Arquivo mapeado: ${fileName} → ${overlayUrl}`)
-    
-    const overlayLoadResult = await new Promise<boolean>((resolve) => {
-      const overlayImg = new Image()
-      overlayImg.crossOrigin = 'anonymous'
-      
-      overlayImg.onload = () => {
-        logs.push(`✅ Overlay carregado: ${overlayImg.width}x${overlayImg.height}`)
-        resolve(true)
-      }
-      overlayImg.onerror = (event) => {
-        logs.push(`❌ Erro ao carregar overlay: ${overlayUrl}`)
-        logs.push(`❌ Evento:`, JSON.stringify(event))
-        resolve(false)
-      }
-      
-      overlayImg.src = overlayUrl
-    })
-    
-    if (!overlayLoadResult) {
-      return { success: false, logs, error: `Falha ao carregar overlay: ${overlayUrl}` }
-    }
-    
-    // 6. Testar aplicação simples (sem curvatura)
-    logs.push(`🎨 Testando aplicação simples...`)
-    
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext('2d')!
-    
-    // Desenha imagem original
-    ctx.drawImage(img, 0, 0)
-    
-    // Cria landmarks estimados simples para teste
-    const centerX = img.width / 2
-    const centerY = img.height / 2
-    const testLandmarks = [
-      { x: centerX - 40, y: centerY },      // Canto interno
-      { x: centerX - 20, y: centerY - 10 }, // Superior interno
-      { x: centerX + 20, y: centerY - 10 }, // Superior externo
-      { x: centerX + 40, y: centerY }       // Canto externo
-    ]
-    
-    logs.push(`👁️ Landmarks de teste criados: ${testLandmarks.length} pontos`)
-    
-    // Testa aplicação curva
-    try {
-      await applyCurvedEyelashOverlay(
-        testLandmarks,
-        ctx,
-        overlayUrl,
-        false,
-        styleId
-      )
-      
-      logs.push(`✅ Aplicação curva concluída com sucesso!`)
-      
-      const resultImage = canvas.toDataURL('image/jpeg', 0.9)
-      logs.push(`📊 Imagem resultado gerada: ${(resultImage.length / 1024).toFixed(1)}KB`)
-      
-      return { 
-        success: true, 
-        logs, 
-        imageResult: resultImage 
-      }
-      
-    } catch (error) {
-      logs.push(`❌ Erro na aplicação curva: ${error}`)
-      return { success: false, logs, error: `Erro na aplicação: ${error}` }
-    }
-    
-  } catch (error) {
-    logs.push(`❌ Erro geral: ${error}`)
-    return { success: false, logs, error: `Erro geral: ${error}` }
-  }
-}
+// Função debugEyelashApplication removida para produção
 
 /**
- * 🌊 FUNÇÃO DE TESTE PARA CURVATURA REAL: Valida aplicação curva da pálpebra
+ * 🌊 FUNÇÃO DE TESTE: Removida para produção
  */
+// Função testCurvedEyelashApplication removida para produção
+/*
 export const testCurvedEyelashApplication = async (imageFile: File, styleId: string = 'brasileiro-boneca'): Promise<{
   landmarks: any,
   curvatureAnalysis: any,
@@ -1876,398 +1734,52 @@ export const testCurvedEyelashApplication = async (imageFile: File, styleId: str
   feedback: string[],
   preview?: string
 }> => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const faceApiAvailable = await loadFaceApiModels()
-      
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      
-      img.onload = async () => {
-        try {
-          let faceData = null
-          
-          if (faceApiAvailable) {
-            faceData = await detectFacialLandmarks()
-          }
-          
-          const eyelidCurves = await calculateEyelidCurve(img, faceData)
-          
-          if (eyelidCurves) {
-            const feedback: string[] = []
-            let curveQuality = 100
-            let anatomicalAccuracy = 100
-            
-            // Testa extração da curvatura da pálpebra superior
-            const leftEyelidCurve = extractUpperEyelidCurve(eyelidCurves.leftEye)
-            const rightEyelidCurve = extractUpperEyelidCurve(eyelidCurves.rightEye)
-            
-            // Gera curvas anatômicas
-            const leftAnatomicalCurve = generateAnatomicalCurve(leftEyelidCurve)
-            const rightAnatomicalCurve = generateAnatomicalCurve(rightEyelidCurve)
-            
-            // Calcula métricas de qualidade da curvatura
-            const leftEyeWidth = eyelidCurves.leftEyeWidth || calculateEyeWidth(eyelidCurves.leftEye)
-            const rightEyeWidth = eyelidCurves.rightEyeWidth || calculateEyeWidth(eyelidCurves.rightEye)
-            
-            // Validações específicas da curvatura
-            if (leftAnatomicalCurve.length < 10) {
-              curveQuality -= 20
-              feedback.push('Pontos insuficientes para curvatura suave - olho esquerdo')
-            }
-            
-            if (rightAnatomicalCurve.length < 10) {
-              curveQuality -= 20
-              feedback.push('Pontos insuficientes para curvatura suave - olho direito')
-            }
-            
-            const symmetryRatio = Math.min(leftEyeWidth, rightEyeWidth) / Math.max(leftEyeWidth, rightEyeWidth)
-            if (symmetryRatio < 0.8) {
-              anatomicalAccuracy -= 15
-              feedback.push('Assimetria significativa entre olhos pode afetar curvatura')
-            }
-            
-            if (leftEyeWidth < 30 || rightEyeWidth < 30) {
-              anatomicalAccuracy -= 25
-              feedback.push('Olhos muito pequenos - curvatura pode ser imprecisa')
-            }
-            
-            // Teste de preview da aplicação curva
-            let preview = ''
-            try {
-              const canvas = document.createElement('canvas')
-              canvas.width = img.width
-              canvas.height = img.height
-              const ctx = canvas.getContext('2d')!
-              ctx.drawImage(img, 0, 0)
-              
-              // 🔧 CORREÇÃO TESTE: Usa overlayPath diretamente do estilo
-              const estilos = getEstilosCilios()
-              const estiloAtual = estilos.find(e => e.id === styleId)
-              const eyelashUrl = estiloAtual?.overlayPath || `/assets/cilios/${getEyelashFileName(styleId)}`
-              
-              // Aplica preview da curvatura
-              await applyCurvedEyelashOverlay(
-                eyelidCurves.leftEye,
-                ctx,
-                eyelashUrl,
-                false,
-                styleId
-              )
-              
-              await applyCurvedEyelashOverlay(
-                eyelidCurves.rightEye,
-                ctx,
-                eyelashUrl,
-                true,
-                styleId
-              )
-              
-              preview = canvas.toDataURL('image/jpeg', 0.8)
-              feedback.push('Preview da curvatura gerado com sucesso')
-            } catch (previewError) {
-              console.error('❌ Erro ao gerar preview:', previewError)
-              feedback.push('Erro ao gerar preview da curvatura')
-              curveQuality -= 10
-            }
-            
-            // Classificação final
-            let alignment: 'excellent' | 'good' | 'poor' = 'poor'
-            const overallScore = (curveQuality + anatomicalAccuracy) / 2
-            
-            if (overallScore >= 85 && leftAnatomicalCurve.length >= 15 && rightAnatomicalCurve.length >= 15) {
-              alignment = 'excellent'
-            } else if (overallScore >= 70 && leftAnatomicalCurve.length >= 10 && rightAnatomicalCurve.length >= 10) {
-              alignment = 'good'
-            }
-            
-            resolve({
-              landmarks: {
-                leftEye: leftEyelidCurve,
-                rightEye: rightEyelidCurve,
-                method: eyelidCurves.method
-              },
-              curvatureAnalysis: {
-                leftCurvePoints: leftAnatomicalCurve.length,
-                rightCurvePoints: rightAnatomicalCurve.length,
-                leftEyeWidth: leftEyeWidth.toFixed(1),
-                rightEyeWidth: rightEyeWidth.toFixed(1),
-                symmetryRatio: (symmetryRatio * 100).toFixed(1) + '%',
-                imageSize: `${img.width}x${img.height}`
-              },
-              alignment,
-              curveQuality,
-              anatomicalAccuracy,
-              feedback,
-              preview
-            })
-          } else {
-            reject(new Error('Não foi possível calcular landmarks para teste de curvatura'))
-          }
-        } catch (error) {
-          reject(error)
-        }
-      }
-      
-      img.onerror = () => {
-        reject(new Error('Erro ao carregar imagem para teste de curvatura'))
-      }
-      
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        img.src = e.target?.result as string
-      }
-      reader.readAsDataURL(imageFile)
-      
-    } catch (error) {
-      reject(error)
-    }
+  // Implementação removida para produção
+  return Promise.resolve({
+    landmarks: null,
+    curvatureAnalysis: null,
+    alignment: 'poor' as const,
+    curveQuality: 0,
+    anatomicalAccuracy: 0,
+    feedback: ['Função removida para produção']
   })
 }
+*/
 
 /**
- * 🧪 FUNÇÃO DE TESTE ATUALIZADA: Valida posicionamento na raiz dos cílios
+ * 🧪 FUNÇÃO DE TESTE: Removida para produção
  */
-export const testEyelashAlignment = async (imageFile: File): Promise<{
-  landmarks: any,
-  eyeMetrics: any,
-  alignment: 'excellent' | 'good' | 'poor',
-  eyelashAnchors?: any,
-  validationScore?: number,
-  feedback?: string[],
-  styleConfig?: any
-}> => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Carrega modelos se necessário
-      const faceApiAvailable = await loadFaceApiModels()
-      
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      
-      img.onload = async () => {
-        let faceData = null
-        
-        if (faceApiAvailable) {
-          faceData = await detectFacialLandmarks()
-        }
-        
-        if (faceData) {
-          const eyeLandmarks = extractEyeLandmarks(faceData)
-          
-          if (eyeLandmarks) {
-            // Calcula métricas de qualidade
-            const leftEyeWidth = Math.sqrt(
-              Math.pow(eyeLandmarks.leftEye[3].x - eyeLandmarks.leftEye[0].x, 2) + 
-              Math.pow(eyeLandmarks.leftEye[3].y - eyeLandmarks.leftEye[0].y, 2)
-            )
-            
-            const rightEyeWidth = Math.sqrt(
-              Math.pow(eyeLandmarks.rightEye[3].x - eyeLandmarks.rightEye[0].x, 2) + 
-              Math.pow(eyeLandmarks.rightEye[3].y - eyeLandmarks.rightEye[0].y, 2)
-            )
-            
-            const symmetryRatio = Math.min(leftEyeWidth, rightEyeWidth) / Math.max(leftEyeWidth, rightEyeWidth)
-            
-            // 🎯 TESTA PONTOS DE ANCORAGEM NA RAIZ DOS CÍLIOS
-            const leftEyelashAnchor = getEyelashAnchorPoint(eyeLandmarks.leftEye, false)
-            const rightEyelashAnchor = getEyelashAnchorPoint(eyeLandmarks.rightEye, true)
-            
-            // Calcula configuração para um estilo padrão
-            const styleConfig = getStyleRefinementConfig('volume-brasileiro-d')
-            
-            // Validação da qualidade do posicionamento
-            const validationFeedback: string[] = []
-            let validationScore = 100
-            
-            // Verifica se os pontos de ancoragem estão bem posicionados
-            const anchorDistance = Math.sqrt(
-              Math.pow(rightEyelashAnchor.anchorPoint.x - leftEyelashAnchor.anchorPoint.x, 2) + 
-              Math.pow(rightEyelashAnchor.anchorPoint.y - leftEyelashAnchor.anchorPoint.y, 2)
-            )
-            
-            if (anchorDistance < 50) {
-              validationScore -= 30
-              validationFeedback.push('Distância entre olhos muito pequena - pode afetar precisão')
-            }
-            
-            if (leftEyeWidth < 20 || rightEyeWidth < 20) {
-              validationScore -= 20
-              validationFeedback.push('Olhos muito pequenos na imagem - recomenda-se maior resolução')
-            }
-            
-            if (symmetryRatio < 0.8) {
-              validationScore -= 15
-              validationFeedback.push('Assimetria significativa entre olhos detectada')
-            }
-            
-            let alignment: 'excellent' | 'good' | 'poor' = 'poor'
-            if (validationScore >= 90 && symmetryRatio > 0.9 && leftEyeWidth > 30) alignment = 'excellent'
-            else if (validationScore >= 70 && symmetryRatio > 0.8 && leftEyeWidth > 20) alignment = 'good'
-            
-            resolve({
-              landmarks: eyeLandmarks,
-              eyeMetrics: {
-                leftEyeWidth: leftEyeWidth.toFixed(1),
-                rightEyeWidth: rightEyeWidth.toFixed(1),
-                symmetryRatio: (symmetryRatio * 100).toFixed(1) + '%',
-                imageSize: `${img.width}x${img.height}`,
-                anchorDistance: anchorDistance.toFixed(1)
-              },
-              alignment,
-              eyelashAnchors: {
-                leftEye: leftEyelashAnchor,
-                rightEye: rightEyelashAnchor
-              },
-              validationScore,
-              feedback: validationFeedback,
-              styleConfig
-            })
-          } else {
-            throw new Error('Não foi possível extrair landmarks dos olhos')
-          }
-        } else {
-          throw new Error('Não foi possível detectar rosto na imagem')
-        }
-      }
-      
-      img.onerror = () => {
-        reject(new Error('Erro ao carregar imagem para teste'))
-      }
-      
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        img.src = e.target?.result as string
-      }
-      reader.readAsDataURL(imageFile)
-      
-    } catch (error) {
-      reject(error)
-    }
-  })
-}
+// Função testEyelashAlignment removida para produção
 
 /**
- * 🔧 FUNÇÃO DE TESTE RÁPIDO: Para debugging no console
+ * 🔧 FUNÇÃO DE TESTE RÁPIDO: Removida para produção
  */
-export const testeRapidoCilios = () => {
-  console.log('🚨🚨🚨 === TESTE RÁPIDO DOS CÍLIOS ===')
-  
-  try {
-    console.log('1. Testando função getEstilosCilios...')
-    const estilos = getEstilosCilios()
-    console.log('✅ Estilos carregados:', estilos.length)
-    console.table(estilos.map(e => ({ id: e.id, nome: e.nome, thumbnail: e.thumbnail, overlayPath: e.overlayPath })))
-    
-    console.log('2. Testando carregamento de TODAS as imagens...')
-    let sucessos = 0
-    let erros = 0
-    
-    estilos.forEach((estilo, index) => {
-      const img = new Image()
-      img.onload = () => {
-        sucessos++
-        console.log(`✅ ${index + 1}/${estilos.length}. ${estilo.nome}: CARREGOU (${img.width}x${img.height})`)
-        if (sucessos + erros === estilos.length) {
-          console.log(`🎯 RESULTADO FINAL: ${sucessos} sucessos, ${erros} erros de ${estilos.length} imagens`)
-        }
-      }
-      img.onerror = (event) => {
-        erros++
-        console.error(`❌ ${index + 1}/${estilos.length}. ${estilo.nome}: ERRO ao carregar`)
-        console.error(`   URL testada: ${estilo.overlayPath}`)
-        console.error(`   Evento de erro:`, event)
-        if (sucessos + erros === estilos.length) {
-          console.log(`🎯 RESULTADO FINAL: ${sucessos} sucessos, ${erros} erros de ${estilos.length} imagens`)
+// Função testeRapidoCilios removida para produção
         }
       }
       img.src = estilo.overlayPath
-      console.log(`🔗 ${index + 1}. Testando: ${estilo.overlayPath}`)
+      // Log removido para produção
     })
     
-    console.log('3. Informações do sistema:')
-    console.log('   • Local:', window.location.href)
-    console.log('   • User Agent:', navigator.userAgent)
-    console.log('   • Cookies habilitados:', navigator.cookieEnabled)
+    // Logs de informações do sistema removidos para produção
     
-    console.log('🚨 TESTE INICIADO! Aguarde os resultados do carregamento das imagens...')
+    // Log removido para produção
     return { success: true, message: 'Teste executado com sucesso' }
     
   } catch (error) {
-    console.error('❌ ERRO NO TESTE:', error)
+    // Log removido para produção
     return { success: false, error }
   }
 }
 
-/**
- * 🔧 FUNÇÃO DE TESTE ESPECÍFICO: Testa um estilo individual
- */
-export const testeEstiloEspecifico = (estiloId: string) => {
-  console.log(`🚨🚨🚨 === TESTE DO ESTILO: ${estiloId} ===`)
-  
-  try {
-    const estilos = getEstilosCilios()
-    const estilo = estilos.find(e => e.id === estiloId)
-    
-    if (!estilo) {
-      console.error(`❌ Estilo '${estiloId}' não encontrado!`)
-      console.log('✅ Estilos disponíveis:', estilos.map(e => e.id))
-      return { success: false, error: 'Estilo não encontrado' }
-    }
-    
-    console.log('✅ Estilo encontrado:', estilo)
-    
-    console.log('🔗 Testando carregamento da imagem...')
-    const img = new Image()
-    
-    return new Promise((resolve) => {
-      img.onload = () => {
-        console.log(`✅ SUCESSO! Imagem carregada: ${img.width}x${img.height}px`)
-        console.log('📊 Detalhes da imagem:')
-        console.log(`   • Largura: ${img.width}px`)
-        console.log(`   • Altura: ${img.height}px`)
-        console.log(`   • URL: ${estilo.overlayPath}`)
-        console.log(`   • Natural Width: ${img.naturalWidth}px`)
-        console.log(`   • Natural Height: ${img.naturalHeight}px`)
-        resolve({ success: true, estilo, dimensions: { width: img.width, height: img.height } })
-      }
-      
-      img.onerror = (event) => {
-        console.error(`❌ ERRO ao carregar imagem!`)
-        console.error(`   URL: ${estilo.overlayPath}`)
-        console.error(`   Evento:`, event)
-        
-        // Tenta com caminho alternativo
-        console.log('🔄 Tentando caminho alternativo...')
-        const alternativeUrl = `/assets/cilios/${getEyelashFileName(estiloId)}`
-        console.log(`🔗 URL alternativa: ${alternativeUrl}`)
-        
-        const img2 = new Image()
-        img2.onload = () => {
-          console.log(`✅ SUCESSO com URL alternativa! ${img2.width}x${img2.height}px`)
-          resolve({ success: true, estilo, dimensions: { width: img2.width, height: img2.height }, urlUsada: alternativeUrl })
-        }
-        img2.onerror = () => {
-          console.error(`❌ FALHOU também com URL alternativa`)
-          resolve({ success: false, error: 'Ambas URLs falharam', estilo })
-        }
-        img2.src = alternativeUrl
-      }
-      
-      img.src = estilo.overlayPath
-    })
-    
-  } catch (error) {
-    console.error('❌ ERRO NO TESTE:', error)
-    return { success: false, error }
-  }
-}
+// Função de teste removida para produção
+// testeEstiloEspecifico - função de debug removida
 
-// Disponibiliza globalmente para debug
-if (typeof window !== 'undefined') {
-  (window as any).testeRapidoCilios = testeRapidoCilios;
-  (window as any).testeEstiloEspecifico = testeEstiloEspecifico
-}
+// Funções de debug globais removidas para produção
+// if (typeof window !== 'undefined') {
+//   (window as any).testeRapidoCilios = testeRapidoCilios;
+//   (window as any).testeEstiloEspecifico = testeEstiloEspecifico
+// }
 
 /**
  * 🔍 FUNÇÃO MELHORADA: Detecta tipo de arquivo de overlay automaticamente

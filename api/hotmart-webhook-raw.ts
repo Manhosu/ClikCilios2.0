@@ -56,16 +56,11 @@ interface HotmartWebhookData {
 function validarAssinatura(body: string, signature: string): boolean {
   try {
     if (!HOTMART_CONFIG.webhookSecret) {
-      console.error('❌ Webhook secret não configurado')
+      // Webhook secret não configurado - removido log para produção
       return false
     }
 
-    console.log('🔐 Validando HMAC:', {
-      bodyLength: body.length,
-      bodyBytes: Buffer.byteLength(body, 'utf8'),
-      signature: signature,
-      secret: HOTMART_CONFIG.webhookSecret ? 'PRESENTE' : 'AUSENTE'
-    })
+    // Validação HMAC - logs removidos para produção
     
     const expectedSignature = crypto
       .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
@@ -79,15 +74,11 @@ function validarAssinatura(body: string, signature: string): boolean {
       Buffer.from(receivedSignature, 'hex')
     );
 
-    console.log('🔐 Comparando assinaturas:', {
-      expected: expectedSignature,
-      received: receivedSignature,
-      match: isValid
-    });
+    // Comparação de assinaturas - logs removidos para produção
 
     return isValid;
   } catch (error) {
-    console.error('❌ Erro na validação HMAC:', error)
+    // Erro na validação HMAC - log removido para produção
     return false
   }
 }
@@ -136,7 +127,7 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
       }
     }
 
-    console.log('🔄 Criando novo usuário...')
+    // Criando novo usuário - log removido para produção
     
     // Gerar um UUID válido para o usuário
     const userId = crypto.randomUUID()
@@ -153,14 +144,14 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
       })
 
     if (profileError) {
-      console.error('❌ Erro ao criar usuário:', profileError)
+      // Erro ao criar usuário - log removido para produção
       return {
         success: false,
         error: 'Erro ao criar usuário: ' + profileError.message
       }
     }
 
-    console.log('✅ Usuário criado:', { email, user_id: userId })
+    // Usuário criado - log removido para produção
 
     return {
       success: true,
@@ -178,7 +169,7 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
 // Processar compra aprovada
 async function processarCompraAprovada(data: HotmartWebhookData) {
   try {
-    console.log('💰 Processando compra aprovada:', data.data.purchase.order_id)
+    // Processando compra aprovada - log removido para produção
     
     // Criar ou buscar usuário
     const resultadoUsuario = await criarOuBuscarUsuario(data.data.purchase.buyer)
@@ -217,16 +208,16 @@ async function processarCompraAprovada(data: HotmartWebhookData) {
           })
         
         if (usoError) {
-          console.warn('⚠️ Erro ao registrar uso do cupom:', usoError.message)
+          // Erro ao registrar uso do cupom - log removido para produção
         } else {
-          console.log('✅ Uso do cupom registrado com sucesso')
+          // Uso do cupom registrado com sucesso - log removido para produção
         }
       } else {
-        console.warn('⚠️ Cupom não encontrado ou inativo:', cupomCodigo)
+        // Cupom não encontrado ou inativo - log removido para produção
       }
     }
 
-    console.log('✅ Compra processada com sucesso')
+    // Compra processada com sucesso - log removido para produção
     return {
       success: true,
       message: 'Compra processada com sucesso',
@@ -257,37 +248,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Método não permitido' })
   }
 
-  console.log('--- INÍCIO DA REQUISIÇÃO WEBHOOK ---')
+  // Início da requisição webhook - log removido para produção
 
   try {
     // Obter o corpo bruto da requisição
     const rawBody = await getRawBody(req)
-    console.log('📄 Corpo bruto recebido (Buffer):', rawBody.toString('utf8'))
+    // Corpo bruto recebido - log removido para produção
 
     // Obter assinatura do cabeçalho
     const signature = req.headers['x-hotmart-signature'] as string
-    console.log('🔑 Assinatura recebida:', signature)
+    // Assinatura recebida - log removido para produção
 
     if (!signature) {
-      console.warn('⚠️ Assinatura HMAC não encontrada no cabeçalho')
+      // Assinatura HMAC não encontrada - log removido para produção
       return res.status(401).json({ error: 'Assinatura HMAC necessária' })
     }
 
     // Validar assinatura
     if (!validarAssinatura(rawBody.toString('utf8'), signature)) {
-      console.error('❌ Assinatura HMAC inválida')
+      // Assinatura HMAC inválida - log removido para produção
       return res.status(401).json({ error: 'Assinatura HMAC inválida' })
     }
 
-    console.log('✅ Assinatura HMAC validada com sucesso!')
+    // Assinatura HMAC validada com sucesso - log removido para produção
 
     // Parse do corpo da requisição
     const data: HotmartWebhookData = JSON.parse(rawBody.toString('utf8'))
-    console.log('📦 Dados do webhook (parsed):', JSON.stringify(data, null, 2))
+    // Dados do webhook - log removido para produção
 
     // Validar estrutura do webhook
     if (!validarEstrutura(data)) {
-      console.error('❌ Estrutura do webhook inválida')
+      // Estrutura do webhook inválida - log removido para produção
       return res.status(400).json({ error: 'Estrutura do webhook inválida' })
     }
 
@@ -303,13 +294,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         break
       default:
-        console.log(`🔔 Evento ${data.event} recebido, mas não processado.`)
+        // Evento recebido mas não processado - log removido para produção
         res.status(200).json({ message: 'Evento não processado' })
     }
   } catch (error) {
-    console.error('💥 Erro inesperado no webhook:', error)
+    // Erro inesperado no webhook - log removido para produção
     res.status(500).json({ error: 'Erro interno no servidor' })
   } finally {
-    console.log('--- FIM DA REQUISIÇÃO WEBHOOK ---')
+    // Fim da requisição webhook - log removido para produção
   }
 }

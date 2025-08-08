@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
 import Button from '../components/Button'

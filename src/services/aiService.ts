@@ -1755,22 +1755,6 @@ export const testCurvedEyelashApplication = async (imageFile: File, styleId: str
  * 🔧 FUNÇÃO DE TESTE RÁPIDO: Removida para produção
  */
 // Função testeRapidoCilios removida para produção
-        }
-      }
-      img.src = estilo.overlayPath
-      // Log removido para produção
-    })
-    
-    // Logs de informações do sistema removidos para produção
-    
-    // Log removido para produção
-    return { success: true, message: 'Teste executado com sucesso' }
-    
-  } catch (error) {
-    // Log removido para produção
-    return { success: false, error }
-  }
-}
 
 // Função de teste removida para produção
 // testeEstiloEspecifico - função de debug removida

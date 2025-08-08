@@ -238,8 +238,7 @@ const applySplineBasedDeformation = (
   const transformedHeight = overlayImg.height * scaleY
   
   // Ponto de ancoragem (centro da pálpebra superior)
-  const anchorX = centerPoint.x - transformedWidth / 2
-  const anchorY = centerPoint.y - transformedHeight * 0.2 // 20% acima da linha da pálpebra
+  // anchorX e anchorY removidos - não utilizados
   
   // Ancoragem e dimensões transformadas - logs removidos para produção
   

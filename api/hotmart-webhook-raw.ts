@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 // Configuração do Hotmart
 const HOTMART_CONFIG = {
-  webhookSecret: process.env.HOTMART_WEBHOOK_SECRET
+  webhookSecret: process.env.VITE_HOTMART_WEBHOOK_SECRET
 }
 
 // Desabilitar parsing automático do body

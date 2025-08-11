@@ -23,8 +23,8 @@ export interface AuthState {
   isAuthenticated: boolean
 }
 
-// Verificar se está em modo desenvolvimento baseado nas variáveis de ambiente
-const isDevMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Forçar modo produção - sempre usar Supabase
+const isDevMode = false;
 // Usuário mock para desenvolvimento
 const mockUser: User = {
   id: 'dev-user-123',
@@ -137,11 +137,22 @@ export const useAuth = () => {
         .single()
 
       if (error) {
-        console.error('Erro ao carregar perfil:', error)
+        console.warn('Perfil não encontrado na tabela users, usando dados do Auth:', error.message)
+        
+        // Se não encontrar na tabela users, criar um usuário baseado nos dados do Auth
+        const user: User = {
+          id: authUser.id,
+          email: authUser.email || '',
+          nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
+          tipo: 'profissional',
+          is_admin: false,
+          onboarding_completed: false
+        }
+
         setAuthState({
-          user: null,
+          user,
           isLoading: false,
-          isAuthenticated: false
+          isAuthenticated: true
         })
         return
       }
@@ -237,7 +248,9 @@ export const useAuth = () => {
       }
 
       if (data.user) {
-        // O usuário será criado automaticamente na tabela users via trigger
+        // Usuário criado com sucesso no Auth
+        // O perfil será criado automaticamente quando fizer login
+        console.log('✅ Usuário criado no Supabase Auth:', data.user.id)
         return { success: true }
       }
 

@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Configurações da Hotmart
 const HOTMART_CONFIG = {
-  webhookSecret: process.env.HOTMART_WEBHOOK_SECRET || '',
+  webhookSecret: process.env.VITE_HOTMART_WEBHOOK_SECRET || '',
   validStatuses: ['APPROVED', 'COMPLETE', 'PAID']
 }
 

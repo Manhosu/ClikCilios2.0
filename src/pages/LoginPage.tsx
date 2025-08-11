@@ -6,12 +6,9 @@ const LoginPage = () => {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showRegister, setShowRegister] = useState(false)
-  const [showForgotPassword, setShowForgotPassword] = useState(false)
-  const [nome, setNome] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   
-  const { login, register, resetPassword, isAuthenticated } = useAuth()
+  const { login, isAuthenticated } = useAuth()
 
   // Redirecionar se já autenticado
   if (isAuthenticated) {
@@ -38,43 +35,7 @@ const LoginPage = () => {
     setIsLoading(false)
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
 
-    const result = await register(email, password, nome)
-    
-    if (result.success) {
-      setSuccessMessage('Cadastro realizado! Verifique seu email para confirmar a conta.')
-      setShowRegister(false)
-      setEmail('')
-      setPassword('')
-      setNome('')
-    } else {
-      setError(result.error || 'Erro no cadastro')
-    }
-    
-    setIsLoading(false)
-  }
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
-
-    const result = await resetPassword(email)
-    
-    if (result.success) {
-      setSuccessMessage('Email de recuperação enviado! Verifique sua caixa de entrada.')
-      setShowForgotPassword(false)
-      setEmail('')
-    } else {
-      setError(result.error || 'Erro ao enviar email')
-    }
-    
-    setIsLoading(false)
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-elegant-gradient px-4 sm:px-6 lg:px-8">
@@ -107,121 +68,7 @@ const LoginPage = () => {
             </div>
           )}
 
-          {/* Formulário de Esqueci Senha */}
-          {showForgotPassword ? (
-            <form className="space-y-8" onSubmit={handleForgotPassword}>
-              <h2 className="text-2xl font-bold text-elegant-800 mb-6 text-center">Recuperar Senha</h2>
-              
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-elegant-700 mb-3">
-                  📧 E-mail
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  className="input-field"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-4">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="btn-primary w-full"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)' }}
-                >
-                  {isLoading ? '💌 Enviando...' : '💌 Enviar Email de Recuperação'}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="btn-secondary w-full"
-                >
-                  ← Voltar ao Login
-                </button>
-              </div>
-            </form>
-          ) : showRegister ? (
-            /* Formulário de Registro */
-            <form className="space-y-8" onSubmit={handleRegister}>
-              <h2 className="text-2xl font-bold text-elegant-800 mb-6 text-center">Criar Conta</h2>
-              
-              <div>
-                <label htmlFor="nome" className="block text-sm font-semibold text-elegant-700 mb-3">
-                  👤 Nome Completo
-                </label>
-                <input
-                  id="nome"
-                  name="nome"
-                  type="text"
-                  required
-                  className="input-field"
-                  placeholder="Seu nome completo"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-elegant-700 mb-3">
-                  📧 E-mail
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  className="input-field"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-elegant-700 mb-3">
-                  🔒 Senha
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  className="input-field"
-                  placeholder="Mínimo 6 caracteres"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={6}
-                />
-              </div>
-
-              <div className="space-y-4">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="btn-primary w-full"
-                  style={{ background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)' }}
-                >
-                  {isLoading ? '✨ Criando conta...' : '✨ Criar Conta'}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setShowRegister(false)}
-                  className="btn-secondary w-full"
-                >
-                  ← Já tenho conta
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* Formulário de Login */
+          {/* Formulário de Login */}
             <form className="space-y-8" onSubmit={handleLogin}>
               <div>
                 <label htmlFor="email" className="block text-sm font-semibold text-elegant-700 mb-3">
@@ -268,25 +115,23 @@ const LoginPage = () => {
                 </button>
               </div>
 
-              <div className="space-y-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="block w-full text-sm font-medium text-primary-600 hover:text-secondary-600 transition-colors duration-200"
-                >
-                  💭 Esqueci minha senha
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setShowRegister(true)}
-                  className="block w-full text-sm font-medium text-secondary-600 hover:text-primary-600 transition-colors duration-200"
-                >
-                  ✨ Não tenho conta - Criar agora
-                </button>
-              </div>
             </form>
-          )}
+        </div>
+
+        {/* Informação sobre criação de contas */}
+        <div className="text-center">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-elegant mb-6">
+            <div className="flex items-center justify-center mb-3">
+              <span className="text-2xl mr-2">🛒</span>
+              <h3 className="text-lg font-bold text-blue-800">Como obter acesso?</h3>
+            </div>
+            <p className="text-blue-700 font-medium mb-2">
+              As contas são criadas automaticamente após a compra do acesso.
+            </p>
+            <p className="text-blue-600 text-sm">
+              Após a compra, você receberá suas credenciais de login por email.
+            </p>
+          </div>
         </div>
 
         <div className="text-center text-sm text-elegant-500">

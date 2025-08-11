@@ -6,7 +6,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [successMessage] = useState('')
   
   const { login, isAuthenticated } = useAuth()
 

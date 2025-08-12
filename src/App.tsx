@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import AuthProvider from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -17,6 +18,7 @@ import ParceriasPage from './pages/ParceriasPage'
 import AdminCuponsPage from './pages/AdminCuponsPage'
 import AdminEmailsPage from './pages/AdminEmailsPage'
 import AdminRelatorioCuponsPage from './pages/AdminRelatorioCuponsPage'
+import HotmartAdminPage from './pages/HotmartAdminPage'
 
 function App() {
   return (
@@ -83,6 +85,8 @@ function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="/admin/hotmart" element={<HotmartAdminPage />} />
+            
             {/* Rota padrão */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
@@ -92,6 +96,9 @@ function App() {
           
           {/* Modal de boas-vindas */}
           <WelcomeModal />
+          
+          {/* Toast notifications */}
+          <Toaster position="top-right" richColors />
         </div>
       </AuthProvider>
     </ThemeProvider>

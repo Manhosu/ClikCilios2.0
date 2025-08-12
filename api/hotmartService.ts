@@ -1,5 +1,14 @@
-import { supabase } from '../src/lib/supabase'
-import { CuponsService } from '../src/services/cuponsService'
+import { createClient } from '@supabase/supabase-js'
+
+// Configuração do Supabase com service role para operações administrativas
+const supabaseUrl = process.env.VITE_SUPABASE_URL!
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
 
 // Configurações da Hotmart
 export const HOTMART_CONFIG = {
@@ -285,17 +294,60 @@ export class HotmartService {
   }
 
   /**
+   * Buscar cupom por código
+   */
+  private static async buscarCupom(codigo: string) {
+    try {
+      const { data: cupom, error } = await supabase
+        .from('cupons')
+        .select('id, percentual_comissao')
+        .eq('codigo', codigo.toUpperCase())
+        .eq('ativo', true)
+        .single()
+
+      if (error && error.code !== 'PGRST116') {
+        return { data: null, error: error.message }
+      }
+
+      return { data: cupom, error: null }
+    } catch (error) {
+      return { data: null, error: 'Erro interno ao buscar cupom' }
+    }
+  }
+
+  /**
+   * Buscar user_id por email
+   */
+  private static async buscarUserIdPorEmail(email: string) {
+    try {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .single()
+
+      if (error && error.code !== 'PGRST116') {
+        return { data: null, error: error.message }
+      }
+
+      return { data: user?.id || null, error: null }
+    } catch (error) {
+      return { data: null, error: 'Erro interno ao buscar usuário' }
+    }
+  }
+
+  /**
    * Registrar uso do cupom
    */
   private static async registrarUsoCupom(
     codigoCupom: string,
     emailCliente: string,
-    valorVenda: number,
+    valorCompra: number,
     orderId: string
   ): Promise<{ success: boolean; uso_id?: string; error?: string }> {
     try {
       // Buscar cupom válido
-      const { data: cupom, error: cupomError } = await CuponsService.buscarCupomPorCodigo(codigoCupom)
+      const { data: cupom, error: cupomError } = await this.buscarCupom(codigoCupom)
       
       if (cupomError || !cupom) {
         return {
@@ -304,23 +356,39 @@ export class HotmartService {
         }
       }
 
-      // Registrar uso
-      const { data: uso, error: usoError } = await CuponsService.registrarUsoCupom({
-        cupom_id: cupom.id,
-        email_cliente: emailCliente,
-        valor_venda: valorVenda,
-        origem: 'hotmart',
-        observacoes: `Compra Hotmart - Order ID: ${orderId}`
-      })
+      // Buscar user_id
+      const { data: userId, error: userError } = await this.buscarUserIdPorEmail(emailCliente)
+      
+      if (userError || !userId) {
+        return {
+          success: false,
+          error: 'Usuário não encontrado para registro do cupom'
+        }
+      }
+
+      // Calcular comissão
+      const valorComissao = valorCompra * (cupom.percentual_comissao / 100)
+
+      // Registrar uso do cupom com schema correto
+      const { data: uso, error: usoError } = await supabase
+        .from('usos_cupons')
+        .insert({
+          cupom_id: cupom.id,
+          user_id: userId,
+          valor_compra: valorCompra,
+          valor_comissao: valorComissao,
+          origem: 'hotmart',
+          hotmart_transaction_id: orderId
+        })
+        .select('id')
+        .single()
 
       if (usoError || !uso) {
         return {
           success: false,
-          error: usoError || 'Erro ao registrar uso do cupom'
+          error: usoError?.message || 'Erro ao registrar uso do cupom'
         }
       }
-
-      // Cupom registrado - log removido para produção
 
       return {
         success: true,
@@ -328,7 +396,6 @@ export class HotmartService {
       }
 
     } catch (error) {
-      // Erro ao registrar cupom - log removido para produção
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro desconhecido'

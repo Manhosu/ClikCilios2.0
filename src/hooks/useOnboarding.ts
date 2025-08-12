@@ -115,14 +115,16 @@ export const useOnboarding = () => {
           .single()
 
         if (error) {
-          console.error('Erro ao verificar onboarding:', error)
-          // Em modo de erro, mostrar onboarding por segurança
+          console.log('⚠️ Tabela users não disponível, usando dados do Auth para onboarding')
+          // Se não conseguir acessar a tabela, usar dados do usuário atual
+          const needsOnboarding = !user.onboarding_completed
+          
           setOnboarding({
-            isFirstLogin: true,
-            showWelcome: true,
+            isFirstLogin: needsOnboarding,
+            showWelcome: needsOnboarding,
             currentStep: 0,
             steps: defaultSteps,
-            completed: false
+            completed: user.onboarding_completed || false
           })
           setLoading(false)
           return
@@ -302,4 +304,4 @@ export const useOnboarding = () => {
     showWelcomeAgain,
     resetOnboarding
   }
-} 
+}

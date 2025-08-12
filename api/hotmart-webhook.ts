@@ -2,10 +2,15 @@ import { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-// Configuração do Supabase
+// Configuração do Supabase com service role para operações administrativas
 const supabaseUrl = process.env.VITE_SUPABASE_URL!
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
 
 // Configurações da Hotmart
 const HOTMART_CONFIG = {
@@ -45,8 +50,6 @@ interface HotmartWebhookData {
 // Validar assinatura HMAC
 function validarAssinatura(body: string, signature: string): boolean {
   try {
-    // Validação HMAC - logs removidos para produção
-    
     const expectedSignature = crypto
       .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
       .update(body)
@@ -54,14 +57,11 @@ function validarAssinatura(body: string, signature: string): boolean {
     
     const receivedSignature = signature.replace('sha256=', '')
     
-    // Comparação de assinaturas - logs removidos para produção
-    
     return crypto.timingSafeEqual(
       Buffer.from(expectedSignature, 'hex'),
       Buffer.from(receivedSignature, 'hex')
     )
   } catch (error) {
-    // Erro na validação HMAC - log removido para produção
     return false
   }
 }
@@ -84,14 +84,22 @@ function validarEstrutura(data: any): data is HotmartWebhookData {
   }
 }
 
-// Criar ou buscar usuário
+// Gerar senha temporária
+function gerarSenhaTemporaria(): string {
+  return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12)
+}
+
+// Criar ou buscar usuário real
 async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
   try {
+    const email = buyer.email.toLowerCase().trim()
+    const nome = buyer.name.trim()
+
     // Verificar se usuário já existe na tabela users
     const { data: existingProfile } = await supabase
       .from('users')
       .select('id')
-      .eq('email', buyer.email)
+      .eq('email', email)
       .single()
     
     if (existingProfile) {
@@ -102,16 +110,35 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
       }
     }
 
-    // Gerar um ID único para o usuário
-    const userId = `hotmart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    // Gerar senha temporária
+    const senhaTemporaria = gerarSenhaTemporaria()
 
-    // Criar perfil do usuário diretamente na tabela
+    // Criar usuário no Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: senhaTemporaria,
+      email_confirm: true,
+      user_metadata: {
+        nome: nome,
+        created_by: 'hotmart_webhook'
+      }
+    })
+
+    if (authError) {
+      return {
+        success: false,
+        message: 'Erro ao criar usuário no Auth',
+        error: authError.message
+      }
+    }
+
+    // Criar perfil do usuário na tabela users
     const { error: profileError } = await supabase
       .from('users')
       .insert({
-        id: userId,
-        email: buyer.email,
-        nome: buyer.name,
+        id: authData.user.id,
+        email: email,
+        nome: nome,
         is_admin: false,
         onboarding_completed: false,
         created_at: new Date().toISOString(),
@@ -128,8 +155,9 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
 
     return {
       success: true,
-      user_id: userId,
-      created: true
+      user_id: authData.user.id,
+      created: true,
+      senha_temporaria: senhaTemporaria
     }
   } catch (error) {
     return {
@@ -140,12 +168,55 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
   }
 }
 
+// Registrar uso de cupom
+async function registrarUsoCupom(
+  cupomCodigo: string, 
+  userId: string, 
+  valorCompra: number, 
+  orderId: string
+) {
+  try {
+    // Buscar cupom válido
+    const { data: cupom, error: cupomError } = await supabase
+      .from('cupons')
+      .select('id')
+      .eq('codigo', cupomCodigo)
+      .eq('ativo', true)
+      .single()
+    
+    if (cupomError || !cupom) {
+      return null
+    }
+
+    // Registrar uso do cupom
+    const { data: usoCupom, error: usoError } = await supabase
+      .from('usos_cupons')
+      .insert({
+        cupom_id: cupom.id,
+        user_id: userId,
+        valor_compra: valorCompra,
+        valor_comissao: valorCompra * 0.1, // 10% padrão
+        origem: 'hotmart',
+        hotmart_transaction_id: orderId,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (usoError) {
+      return null
+    }
+
+    return usoCupom.id
+  } catch (error) {
+    return null
+  }
+}
+
 // Processar webhook
 async function processarWebhook(webhookData: HotmartWebhookData) {
   try {
     const { data: { purchase } } = webhookData
-
-    // Processando webhook Hotmart - log removido para produção
 
     // Verificar se o status libera acesso
     if (!HOTMART_CONFIG.validStatuses.includes(purchase.status)) {
@@ -165,18 +236,31 @@ async function processarWebhook(webhookData: HotmartWebhookData) {
       }
     }
 
+    // Registrar uso de cupom se existir
+    let usoCupomId = null
+    const cupomCodigo = purchase.tracking?.coupon || purchase.tracking?.source
+    if (cupomCodigo && userResult.user_id) {
+      usoCupomId = await registrarUsoCupom(
+        cupomCodigo, 
+        userResult.user_id, 
+        purchase.price.value, 
+        purchase.order_id
+      )
+    }
+
     return {
       success: true,
       message: 'Compra processada com sucesso',
       data: {
         user_created: userResult.created,
         user_id: userResult.user_id,
-        cupom_usado: purchase.tracking?.coupon || null
+        cupom_usado: cupomCodigo || null,
+        uso_cupom_id: usoCupomId,
+        senha_temporaria: userResult.senha_temporaria
       }
     }
 
   } catch (error) {
-    // Erro ao processar webhook - log removido para produção
     return {
       success: false,
       message: 'Erro interno no processamento',
@@ -203,12 +287,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Webhook Hotmart recebido - log removido para produção
-    
     // Validar headers
     const signature = req.headers['x-hotmart-signature'] as string
     if (!signature) {
-      // Assinatura HMAC não encontrada - log removido para produção
       return res.status(401).json({ error: 'Assinatura HMAC necessária' })
     }
 
@@ -218,17 +299,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validar assinatura HMAC
     const assinaturaValida = validarAssinatura(body, signature)
     if (!assinaturaValida) {
-      // Assinatura HMAC inválida - log removido para produção
       return res.status(401).json({ error: 'Assinatura HMAC inválida' })
     }
 
     // Validar estrutura dos dados
     if (!validarEstrutura(req.body)) {
-      // Estrutura de dados inválida - log removido para produção
       return res.status(400).json({ error: 'Estrutura de dados inválida' })
     }
-
-    // Webhook validado, processando - log removido para produção
 
     // Processar webhook baseado no evento
     let resultado
@@ -243,40 +320,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'PURCHASE_CANCELED':
       case 'PURCHASE_REFUNDED':
       case 'PURCHASE_CHARGEBACK':
-        // Evento recebido mas não processado - log removido para produção
         return res.status(200).json({ 
           message: `Evento ${evento} recebido mas não processado` 
         })
       
       default:
-        // Evento ignorado - log removido para produção
         return res.status(200).json({ 
-          message: `Evento ${evento} recebido mas não processado` 
+          message: 'Evento não reconhecido'
         })
     }
 
-    if (resultado.success) {
-      // Webhook processado com sucesso - log removido para produção
-      return res.status(200).json({
-        success: true,
-        message: resultado.message,
-        data: resultado.data
-      })
-    } else {
-      // Erro no processamento - log removido para produção
-      return res.status(400).json({
-        success: false,
-        message: resultado.message,
-        error: resultado.error
-      })
-    }
+    // Responder com resultado
+    return res.status(resultado.success ? 200 : 400).json(resultado)
 
   } catch (error) {
-    // Erro interno no webhook - log removido para produção
+    console.error('❌ Erro fatal no webhook:', error)
     return res.status(500).json({
       success: false,
-      message: 'Erro interno do servidor',
-      error: error instanceof Error ? error.message : 'Erro desconhecido'
+      error: 'Erro interno do servidor'
     })
   }
 }

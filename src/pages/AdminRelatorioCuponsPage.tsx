@@ -227,7 +227,7 @@ const AdminRelatorioCuponsPage = () => {
                     <option value="">Selecione um cupom</option>
                     {cupons.filter(c => c.ativo).map((cupom) => (
                       <option key={cupom.id} value={cupom.id}>
-                        {cupom.codigo} - {cupom.nome_parceira}
+                        {cupom.codigo} - {cupom.parceira_nome}
                       </option>
                     ))}
                   </select>
@@ -327,7 +327,7 @@ const AdminRelatorioCuponsPage = () => {
                 <option value="">Todos os cupons</option>
                 {cupons.map((cupom) => (
                   <option key={cupom.id} value={cupom.id}>
-                    {cupom.codigo} - {cupom.nome_parceira}
+                    {cupom.codigo} - {cupom.parceira_nome}
                   </option>
                 ))}
               </select>
@@ -437,8 +437,8 @@ const AdminRelatorioCuponsPage = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <div className="text-gray-900">{item.cupom.nome_parceira}</div>
-                              <div className="text-sm text-gray-600">{item.cupom.email_parceira}</div>
+                              <div className="text-gray-900">{item.cupom.parceira_nome}</div>
+                              <div className="text-sm text-gray-600">{item.cupom.parceira_email}</div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -455,7 +455,7 @@ const AdminRelatorioCuponsPage = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <div className="text-gray-900">{item.cupom.comissao_percentual}%</div>
+                            <div className="text-gray-900">{item.cupom.percentual_comissao}%</div>
                           </td>
                         </tr>
                       ))}
@@ -517,7 +517,7 @@ const AdminRelatorioCuponsPage = () => {
                               {uso.cupom?.codigo}
                             </div>
                             <div className="text-sm text-gray-600">
-                              {uso.cupom?.nome_parceira}
+                              {uso.cupom?.parceira_nome}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -569,4 +569,4 @@ const AdminRelatorioCuponsPage = () => {
   )
 }
 
-export default AdminRelatorioCuponsPage 
+export default AdminRelatorioCuponsPage

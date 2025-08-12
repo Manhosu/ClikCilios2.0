@@ -1,4 +1,4 @@
-import { isDevMode } from '../lib/supabase'
+import { isDevMode, supabase } from '../lib/supabase'
 
 export interface Imagem {
   id: string
@@ -85,25 +85,59 @@ const imagensLocal = new ImagensLocalStorage()
 
 // Serviço principal
 export const imagensService = {
-  async listar(_userId: string): Promise<Imagem[]> {
+  async listar(userId: string): Promise<Imagem[]> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - carregando imagens do localStorage')
       return await imagensLocal.listar()
     }
 
-    // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
-    console.warn('⚠️ Tabela imagens não implementada no Supabase ainda')
-    return []
+    try {
+      const { data, error } = await supabase
+        .from('imagens')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao carregar imagens:', error)
+        throw new Error(`Erro ao carregar imagens: ${error.message}`)
+      }
+
+      return data || []
+    } catch (error) {
+      console.error('Erro na consulta de imagens:', error)
+      throw error
+    }
   },
 
-  async criar(_userId: string, dadosImagem: Omit<Imagem, 'id' | 'created_at'>): Promise<Imagem> {
+  async criar(userId: string, dadosImagem: Omit<Imagem, 'id' | 'created_at'>): Promise<Imagem> {
     if (isDevMode) {
       console.info('🔧 Modo desenvolvimento - salvando imagem no localStorage')
       return await imagensLocal.criar(dadosImagem)
     }
 
-    // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
-    throw new Error('Tabela imagens não implementada no Supabase ainda')
+    try {
+      const novaImagem = {
+        ...dadosImagem,
+        user_id: userId
+      }
+
+      const { data, error } = await supabase
+        .from('imagens')
+        .insert([novaImagem])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao criar imagem:', error)
+        throw new Error(`Erro ao criar imagem: ${error.message}`)
+      }
+
+      return data
+    } catch (error) {
+      console.error('Erro na criação de imagem:', error)
+      throw error
+    }
   },
 
   async atualizar(id: string, dadosImagem: Partial<Imagem>): Promise<Imagem | null> {
@@ -112,8 +146,24 @@ export const imagensService = {
       return await imagensLocal.atualizar(id, dadosImagem)
     }
 
-    // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
-    throw new Error('Tabela imagens não implementada no Supabase ainda')
+    try {
+      const { data, error } = await supabase
+        .from('imagens')
+        .update(dadosImagem)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao atualizar imagem:', error)
+        throw new Error(`Erro ao atualizar imagem: ${error.message}`)
+      }
+
+      return data
+    } catch (error) {
+      console.error('Erro na atualização de imagem:', error)
+      throw error
+    }
   },
 
   async excluir(id: string): Promise<boolean> {
@@ -122,7 +172,21 @@ export const imagensService = {
       return await imagensLocal.excluir(id)
     }
 
-    // TODO: Implementar integração com Supabase quando tabela 'imagens' for criada
-    throw new Error('Tabela imagens não implementada no Supabase ainda')
+    try {
+      const { error } = await supabase
+        .from('imagens')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('Erro ao excluir imagem:', error)
+        throw new Error(`Erro ao excluir imagem: ${error.message}`)
+      }
+
+      return true
+    } catch (error) {
+      console.error('Erro na exclusão de imagem:', error)
+      throw error
+    }
   }
 }

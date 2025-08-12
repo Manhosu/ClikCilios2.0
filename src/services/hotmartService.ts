@@ -315,7 +315,7 @@ export class HotmartService {
         email_cliente: emailCliente,
         valor_venda: valorVenda,
         origem: 'hotmart',
-        observacoes: `Compra Hotmart - Order ID: ${orderId}`
+        observacoes: orderId
       })
 
       if (usoError || !uso) {

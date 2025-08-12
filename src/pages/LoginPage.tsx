@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 const LoginPage = () => {
@@ -8,12 +9,26 @@ const LoginPage = () => {
   const [error, setError] = useState('')
   const [successMessage] = useState('')
   
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth()
+  const navigate = useNavigate()
 
-  // Redirecionar se já autenticado
-  if (isAuthenticated) {
-    window.location.href = '/dashboard'
-    return null
+  // Redirecionar se já autenticado (mas só depois que terminar o loading)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/dashboard')
+    }
+  }, [isAuthenticated, authLoading, navigate])
+
+  // Mostrar loading enquanto verifica autenticação inicial
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600"></div>
+          <p className="mt-4 text-gray-600">Verificando autenticação...</p>
+        </div>
+      </div>
+    )
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,10 +39,8 @@ const LoginPage = () => {
     const result = await login(email, password)
     
     if (result.success) {
-      // Pequeno delay para garantir que o estado seja atualizado
-      setTimeout(() => {
-        window.location.href = '/dashboard'
-      }, 100)
+      // Redirecionar para o dashboard
+      navigate('/dashboard')
     } else {
       setError(result.error || 'Erro no login')
     }

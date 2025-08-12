@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase'
 export interface Cupom {
   id: string
   codigo: string
-  nome_parceira: string
-  email_parceira: string
-  comissao_percentual: number
+  parceira_nome: string
+  parceira_email: string
+  percentual_comissao: number
   ativo: boolean
   created_at: string
   updated_at: string
@@ -26,9 +26,9 @@ export interface UsoCupom {
 
 export interface CupomFormData {
   codigo: string
-  nome_parceira: string
-  email_parceira: string
-  comissao_percentual?: number
+  parceira_nome: string
+  parceira_email: string
+  percentual_comissao?: number
 }
 
 export interface UsoCupomFormData {
@@ -86,9 +86,9 @@ export class CuponsService {
         .from('cupons')
         .insert([{
           codigo: cupomData.codigo.toUpperCase(),
-          nome_parceira: cupomData.nome_parceira,
-          email_parceira: cupomData.email_parceira.toLowerCase(),
-          comissao_percentual: cupomData.comissao_percentual || 20.0
+          parceira_nome: cupomData.parceira_nome,
+          parceira_email: cupomData.parceira_email.toLowerCase(),
+          percentual_comissao: cupomData.percentual_comissao || 20.0
         }])
         .select()
         .single()
@@ -127,9 +127,9 @@ export class CuponsService {
         updateData.codigo = cupomData.codigo.toUpperCase()
       }
 
-      if (cupomData.nome_parceira) updateData.nome_parceira = cupomData.nome_parceira
-      if (cupomData.email_parceira) updateData.email_parceira = cupomData.email_parceira.toLowerCase()
-      if (cupomData.comissao_percentual !== undefined) updateData.comissao_percentual = cupomData.comissao_percentual
+      if (cupomData.parceira_nome) updateData.parceira_nome = cupomData.parceira_nome
+      if (cupomData.parceira_email) updateData.parceira_email = cupomData.parceira_email.toLowerCase()
+      if (cupomData.percentual_comissao !== undefined) updateData.percentual_comissao = cupomData.percentual_comissao
 
       const { data, error } = await supabase
         .from('cupons')
@@ -239,7 +239,7 @@ export class CuponsService {
       // Buscar dados do cupom para calcular comissão
       const { data: cupom } = await supabase
         .from('cupons')
-        .select('comissao_percentual')
+        .select('id, percentual_comissao')
         .eq('id', usoData.cupom_id)
         .single()
 
@@ -247,19 +247,30 @@ export class CuponsService {
         return { data: null, error: 'Cupom não encontrado' }
       }
 
-      const comissaoCalculada = usoData.valor_venda 
-        ? (usoData.valor_venda * cupom.comissao_percentual / 100)
-        : null
+      // Buscar user_id pelo email
+      const { data: user } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', usoData.email_cliente.toLowerCase())
+        .single()
 
-      const { data, error } = await supabase
+      if (!user) {
+        return { data: null, error: 'Usuário não encontrado' }
+      }
+
+      const valorCompra = usoData.valor_venda || 0
+      const valorComissao = valorCompra * (cupom.percentual_comissao / 100)
+
+      // Inserir na tabela com os novos campos do schema
+      const { data: usoResult, error } = await supabase
         .from('usos_cupons')
         .insert([{
           cupom_id: usoData.cupom_id,
-          email_cliente: usoData.email_cliente.toLowerCase(),
-          valor_venda: usoData.valor_venda || null,
-          comissao_calculada: comissaoCalculada,
+          user_id: user.id,
+          valor_compra: valorCompra,
+          valor_comissao: valorComissao,
           origem: usoData.origem || 'manual',
-          observacoes: usoData.observacoes || null
+          hotmart_transaction_id: usoData.observacoes || null
         }])
         .select()
         .single()
@@ -269,7 +280,20 @@ export class CuponsService {
         return { data: null, error: error.message }
       }
 
-      return { data, error: null }
+      // Mapear resultado para interface legacy
+      const usoMapeado: UsoCupom = {
+        id: usoResult.id,
+        cupom_id: usoResult.cupom_id,
+        email_cliente: usoData.email_cliente.toLowerCase(),
+        valor_venda: usoResult.valor_compra,
+        comissao_calculada: usoResult.valor_comissao,
+        data_uso: usoResult.created_at,
+        origem: usoResult.origem,
+        observacoes: usoResult.hotmart_transaction_id,
+        created_at: usoResult.created_at
+      }
+
+      return { data: usoMapeado, error: null }
     } catch (error) {
       console.error('Erro interno ao registrar uso:', error)
       return { data: null, error: 'Erro interno do servidor' }
@@ -290,9 +314,10 @@ export class CuponsService {
         .from('usos_cupons')
         .select(`
           *,
-          cupom:cupons(*)
+          cupom:cupons(*),
+          user:users(email)
         `)
-        .order('data_uso', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (filtros?.cupom_id) {
         query = query.eq('cupom_id', filtros.cupom_id)
@@ -303,21 +328,35 @@ export class CuponsService {
       }
 
       if (filtros?.data_inicio) {
-        query = query.gte('data_uso', filtros.data_inicio)
+        query = query.gte('created_at', filtros.data_inicio)
       }
 
       if (filtros?.data_fim) {
-        query = query.lte('data_uso', filtros.data_fim)
+        query = query.lte('created_at', filtros.data_fim)
       }
 
-      const { data, error } = await query
+      const { data: rawData, error } = await query
 
       if (error) {
         console.error('Erro ao listar usos de cupons:', error)
         return { data: null, error: error.message }
       }
 
-      return { data, error: null }
+      // Mapear dados para interface legacy
+      const usosMapeados: UsoCupom[] = rawData?.map((uso: any) => ({
+        id: uso.id,
+        cupom_id: uso.cupom_id,
+        email_cliente: uso.user?.email || '',
+        valor_venda: uso.valor_compra,
+        comissao_calculada: uso.valor_comissao,
+        data_uso: uso.created_at,
+        origem: uso.origem,
+        observacoes: uso.hotmart_transaction_id,
+        created_at: uso.created_at,
+        cupom: uso.cupom
+      })) || []
+
+      return { data: usosMapeados, error: null }
     } catch (error) {
       console.error('Erro interno ao listar usos:', error)
       return { data: null, error: 'Erro interno do servidor' }
@@ -336,17 +375,17 @@ export class CuponsService {
         .from('usos_cupons')
         .select(`
           cupom_id,
-          cupom:cupons(codigo, nome_parceira, email_parceira, comissao_percentual),
-          valor_venda,
-          comissao_calculada
+          cupom:cupons(codigo, parceira_nome, parceira_email, percentual_comissao),
+          valor_compra,
+          valor_comissao
         `)
 
       if (filtros?.data_inicio) {
-        query = query.gte('data_uso', filtros.data_inicio)
+        query = query.gte('created_at', filtros.data_inicio)
       }
 
       if (filtros?.data_fim) {
-        query = query.lte('data_uso', filtros.data_fim)
+        query = query.lte('created_at', filtros.data_fim)
       }
 
       const { data, error } = await query
@@ -370,8 +409,8 @@ export class CuponsService {
         }
 
         acc[cupomId].total_usos += 1
-        acc[cupomId].total_vendas += uso.valor_venda || 0
-        acc[cupomId].total_comissoes += uso.comissao_calculada || 0
+        acc[cupomId].total_vendas += uso.valor_compra || 0
+        acc[cupomId].total_comissoes += uso.valor_comissao || 0
 
         return acc
       }, {})
@@ -384,4 +423,4 @@ export class CuponsService {
       return { data: null, error: 'Erro interno do servidor' }
     }
   }
-} 
+}

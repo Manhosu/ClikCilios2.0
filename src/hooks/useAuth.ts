@@ -46,6 +46,8 @@ export const useAuth = () => {
   })
 
   useEffect(() => {
+    let isMounted = true
+    
     // Se estiver em modo desenvolvimento, usar mock
     if (isDevMode) {
       // Verificar se foi feito logout manual
@@ -53,11 +55,13 @@ export const useAuth = () => {
       
       if (hasLoggedOut || logoutFlag === 'true') {
         console.log('🚪 Modo desenvolvimento: usuário fez logout, mantendo deslogado')
-        setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false
-        })
+        if (isMounted) {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false
+          })
+        }
         return
       }
 
@@ -66,11 +70,13 @@ export const useAuth = () => {
         console.log('🔧 Modo desenvolvimento: usando usuário mock')
         devModeLogged = true
       }
-      setAuthState({
-        user: mockUser,
-        isLoading: false,
-        isAuthenticated: true
-      })
+      if (isMounted) {
+        setAuthState({
+          user: mockUser,
+          isLoading: false,
+          isAuthenticated: true
+        })
+      }
       return
     }
 
@@ -78,6 +84,8 @@ export const useAuth = () => {
     const getSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (!isMounted) return
         
         if (error) {
           console.error('Erro ao obter sessão:', error)
@@ -100,11 +108,13 @@ export const useAuth = () => {
         }
       } catch (error) {
         console.error('Erro na verificação de sessão:', error)
-        setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false
-        })
+        if (isMounted) {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false
+          })
+        }
       }
     }
 
@@ -113,6 +123,10 @@ export const useAuth = () => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return
+        
+        console.log('🔄 Auth state change:', event)
+        
         if (event === 'SIGNED_IN' && session?.user) {
           await loadUserProfile(session.user)
         } else if (event === 'SIGNED_OUT') {
@@ -125,22 +139,44 @@ export const useAuth = () => {
       }
     )
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, []) // Array de dependências vazio - executa apenas uma vez
 
+  // Cache para evitar recarregamentos desnecessários
+  const [userCache, setUserCache] = useState<{ [key: string]: User }>({})
+  
   const loadUserProfile = async (authUser: SupabaseUser) => {
+    // Verificar cache primeiro
+    if (userCache[authUser.id]) {
+      console.log('📋 Usando perfil do cache')
+      setAuthState({
+        user: userCache[authUser.id],
+        isLoading: false,
+        isAuthenticated: true
+      })
+      return
+    }
+    
     try {
+      console.log('🔍 Carregando perfil do usuário:', authUser.email)
+      
+      // Tentar carregar da tabela users, mas não falhar se não conseguir
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
         .single()
 
-      if (error) {
-        console.warn('Perfil não encontrado na tabela users, usando dados do Auth:', error.message)
+      let user: User
+
+      if (error || !userData) {
+        console.log('📝 Criando perfil baseado nos dados do Auth (tabela users não disponível)')
         
-        // Se não encontrar na tabela users, criar um usuário baseado nos dados do Auth
-        const user: User = {
+        // Criar usuário baseado nos dados do Auth
+        user = {
           id: authUser.id,
           email: authUser.email || '',
           nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
@@ -148,35 +184,48 @@ export const useAuth = () => {
           is_admin: false,
           onboarding_completed: false
         }
-
-        setAuthState({
-          user,
-          isLoading: false,
-          isAuthenticated: true
-        })
-        return
+      } else {
+        console.log('✅ Perfil carregado da tabela users')
+        
+        // Usar dados da tabela users
+        user = {
+          id: userData.id,
+          email: userData.email,
+          nome: userData.nome,
+          tipo: userData.is_admin ? 'admin' : 'profissional',
+          is_admin: userData.is_admin,
+          onboarding_completed: userData.onboarding_completed
+        }
       }
 
-      const user: User = {
-        id: userData.id,
-        email: userData.email,
-        nome: userData.nome,
-        tipo: userData.is_admin ? 'admin' : 'profissional',
-        is_admin: userData.is_admin,
-        onboarding_completed: userData.onboarding_completed
-      }
-
+      // Salvar no cache
+      setUserCache(prev => ({ ...prev, [authUser.id]: user }))
+      
       setAuthState({
         user,
         isLoading: false,
         isAuthenticated: true
       })
     } catch (error) {
-      console.error('Erro ao carregar perfil do usuário:', error)
+      console.log('⚠️ Erro ao acessar tabela users, usando dados do Auth:', error)
+      
+      // Em caso de erro, sempre criar usuário baseado no Auth
+      const user: User = {
+        id: authUser.id,
+        email: authUser.email || '',
+        nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
+        tipo: 'profissional',
+        is_admin: false,
+        onboarding_completed: false
+      }
+
+      // Salvar no cache mesmo em caso de erro
+      setUserCache(prev => ({ ...prev, [authUser.id]: user }))
+
       setAuthState({
-        user: null,
+        user,
         isLoading: false,
-        isAuthenticated: false
+        isAuthenticated: true
       })
     }
   }
@@ -199,23 +248,35 @@ export const useAuth = () => {
     }
 
     try {
+      console.log('🔐 Iniciando login para:', email)
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
       if (error) {
+        console.error('❌ Erro no signInWithPassword:', error.message)
         return { success: false, error: error.message }
       }
 
       if (data.user) {
-        await loadUserProfile(data.user)
-        return { success: true }
+        console.log('✅ SignIn bem-sucedido, carregando perfil...')
+        
+        try {
+          await loadUserProfile(data.user)
+          console.log('✅ Perfil carregado, login completo!')
+          return { success: true }
+        } catch (profileError) {
+          console.error('❌ Erro ao carregar perfil:', profileError)
+          // Mesmo com erro no perfil, considerar login bem-sucedido
+          return { success: true }
+        }
       }
 
       return { success: false, error: 'Erro desconhecido no login' }
     } catch (error) {
-      console.error('Erro no login:', error)
+      console.error('❌ Erro geral no login:', error)
       return { success: false, error: 'Erro interno no servidor' }
     }
   }
@@ -262,6 +323,11 @@ export const useAuth = () => {
   }
 
   const logout = async (): Promise<void> => {
+    console.log('🚪 Iniciando logout...')
+    
+    // Limpar cache
+    setUserCache({})
+    
     // Modo desenvolvimento - simular logout
     if (isDevMode) {
       console.log('🔧 Modo desenvolvimento: simulando logout')
@@ -291,6 +357,7 @@ export const useAuth = () => {
         isLoading: false,
         isAuthenticated: false
       })
+      console.log('✅ Logout realizado com sucesso')
     } catch (error) {
       console.error('Erro no logout:', error)
       // Mesmo com erro, limpar estado local

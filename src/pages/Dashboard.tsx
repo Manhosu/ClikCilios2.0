@@ -188,6 +188,17 @@ const Dashboard = () => {
                     {sidebarOpen && <span className="ml-3">Templates Email</span>}
                   </button>
                 </li>
+                <li>
+                  <button
+                    onClick={() => navigate('/admin/hotmart')}
+                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
+                      <span className="text-lg">🔗</span>
+                    </div>
+                    {sidebarOpen && <span className="ml-3">Integração Hotmart</span>}
+                  </button>
+                </li>
               </>
             )}
           </ul>

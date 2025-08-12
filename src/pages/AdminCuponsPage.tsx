@@ -18,9 +18,9 @@ const AdminCuponsPage = () => {
   const [editingCupom, setEditingCupom] = useState<Cupom | null>(null)
   const [formData, setFormData] = useState<CupomFormData>({
     codigo: '',
-    nome_parceira: '',
-    email_parceira: '',
-    comissao_percentual: 20
+    parceira_nome: '',
+    parceira_email: '',
+    percentual_comissao: 20
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -56,9 +56,9 @@ const AdminCuponsPage = () => {
   const resetForm = () => {
     setFormData({
       codigo: '',
-      nome_parceira: '',
-      email_parceira: '',
-      comissao_percentual: 20
+      parceira_nome: '',
+      parceira_email: '',
+      percentual_comissao: 20
     })
     setEditingCupom(null)
     setShowForm(false)
@@ -103,9 +103,9 @@ const AdminCuponsPage = () => {
     setEditingCupom(cupom)
     setFormData({
       codigo: cupom.codigo,
-      nome_parceira: cupom.nome_parceira,
-      email_parceira: cupom.email_parceira,
-      comissao_percentual: cupom.comissao_percentual
+      parceira_nome: cupom.parceira_nome,
+      parceira_email: cupom.parceira_email,
+      percentual_comissao: cupom.percentual_comissao
     })
     setShowForm(true)
   }
@@ -239,8 +239,8 @@ const AdminCuponsPage = () => {
                   </label>
                   <input
                     type="text"
-                    value={formData.nome_parceira}
-                    onChange={(e) => setFormData({...formData, nome_parceira: e.target.value})}
+                    value={formData.parceira_nome}
+                    onChange={(e) => setFormData({...formData, parceira_nome: e.target.value})}
                     placeholder="Ex: Lana Silva"
                     className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     required
@@ -253,8 +253,8 @@ const AdminCuponsPage = () => {
                   </label>
                   <input
                     type="email"
-                    value={formData.email_parceira}
-                    onChange={(e) => setFormData({...formData, email_parceira: e.target.value})}
+                    value={formData.parceira_email}
+                    onChange={(e) => setFormData({...formData, parceira_email: e.target.value})}
                     placeholder="lana@exemplo.com"
                     className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     required
@@ -267,8 +267,8 @@ const AdminCuponsPage = () => {
                   </label>
                   <input
                     type="number"
-                    value={formData.comissao_percentual}
-                    onChange={(e) => setFormData({...formData, comissao_percentual: parseFloat(e.target.value)})}
+                    value={formData.percentual_comissao}
+                    onChange={(e) => setFormData({...formData, percentual_comissao: parseFloat(e.target.value)})}
                     min="0"
                     max="100"
                     step="0.5"
@@ -354,13 +354,13 @@ const AdminCuponsPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-900 font-medium">{cupom.nome_parceira}</div>
+                        <div className="text-gray-900 font-medium">{cupom.parceira_nome}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-600">{cupom.email_parceira}</div>
+                        <div className="text-gray-600">{cupom.parceira_email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-900 font-medium">{cupom.comissao_percentual}%</div>
+                        <div className="text-gray-900 font-medium">{cupom.percentual_comissao}%</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-xl ${
@@ -415,4 +415,4 @@ const AdminCuponsPage = () => {
   )
 }
 
-export default AdminCuponsPage 
+export default AdminCuponsPage

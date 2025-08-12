@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -7,6 +7,13 @@ let devModeLogged = false
 
 // Variável para controlar se foi feito logout manual
 let hasLoggedOut = false
+
+// Variável para evitar múltiplas verificações simultâneas
+let isCheckingAuth = false
+
+// Cache global para sessão
+let sessionCache: { user: User | null; timestamp: number } | null = null
+const CACHE_DURATION = 30000 // 30 segundos
 
 export interface User {
   id: string
@@ -45,22 +52,62 @@ export const useAuth = () => {
     isAuthenticated: false
   })
 
+  const isMountedRef = useRef(true)
+  
+  // Função para verificar cache
+  const checkCache = useCallback(() => {
+    if (sessionCache && Date.now() - sessionCache.timestamp < CACHE_DURATION) {
+      console.log('📋 Usando cache de sessão válido')
+      setAuthState({
+        user: sessionCache.user,
+        isLoading: false,
+        isAuthenticated: !!sessionCache.user
+      })
+      return true
+    }
+    return false
+  }, [])
+
   useEffect(() => {
-    let isMounted = true
+    isMountedRef.current = true
+    
+    // Verificar cache primeiro
+    if (checkCache()) {
+      return
+    }
+    
+    // Timeout de segurança reduzido para melhor UX
+    const timeoutId = setTimeout(() => {
+      if (isMountedRef.current) {
+        console.log('⏰ Timeout de autenticação atingido, definindo como não autenticado')
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false
+        })
+        // Limpar cache em caso de timeout
+        sessionCache = null
+      }
+    }, 5000) // Reduzido para 5 segundos
     
     // Se estiver em modo desenvolvimento, usar mock
     if (isDevMode) {
+      clearTimeout(timeoutId)
+      
       // Verificar se foi feito logout manual
       const logoutFlag = localStorage.getItem('ciliosclick_logout')
       
       if (hasLoggedOut || logoutFlag === 'true') {
         console.log('🚪 Modo desenvolvimento: usuário fez logout, mantendo deslogado')
-        if (isMounted) {
-          setAuthState({
+        if (isMountedRef.current) {
+          const newState = {
             user: null,
             isLoading: false,
             isAuthenticated: false
-          })
+          }
+          setAuthState(newState)
+          // Atualizar cache
+          sessionCache = { user: null, timestamp: Date.now() }
         }
         return
       }
@@ -70,50 +117,84 @@ export const useAuth = () => {
         console.log('🔧 Modo desenvolvimento: usando usuário mock')
         devModeLogged = true
       }
-      if (isMounted) {
-        setAuthState({
+      if (isMountedRef.current) {
+        const newState = {
           user: mockUser,
           isLoading: false,
           isAuthenticated: true
-        })
+        }
+        setAuthState(newState)
+        // Atualizar cache
+        sessionCache = { user: mockUser, timestamp: Date.now() }
       }
       return
     }
 
     // Verificar sessão atual (modo produção)
     const getSession = async () => {
+      // Evitar múltiplas verificações simultâneas
+      if (isCheckingAuth) {
+        console.log('⏳ Verificação de autenticação já em andamento, ignorando...')
+        return
+      }
+      
+      isCheckingAuth = true
+      
       try {
+        console.log('🔍 Verificando sessão inicial...')
         const { data: { session }, error } = await supabase.auth.getSession()
         
-        if (!isMounted) return
+        if (!isMountedRef.current) {
+          isCheckingAuth = false
+          return
+        }
+        
+        // Limpar timeout pois a verificação foi concluída
+        clearTimeout(timeoutId)
         
         if (error) {
-          console.error('Erro ao obter sessão:', error)
-          setAuthState({
+          console.error('❌ Erro ao obter sessão:', error)
+          const newState = {
             user: null,
             isLoading: false,
             isAuthenticated: false
-          })
+          }
+          setAuthState(newState)
+          // Atualizar cache
+          sessionCache = { user: null, timestamp: Date.now() }
+          isCheckingAuth = false
           return
         }
 
         if (session?.user) {
-          await loadUserProfile(session.user)
+          console.log('✅ Sessão encontrada, carregando perfil...')
+          await loadUserProfile(session.user, timeoutId)
         } else {
-          setAuthState({
+          console.log('ℹ️ Nenhuma sessão ativa, redirecionando para login')
+          const newState = {
             user: null,
             isLoading: false,
             isAuthenticated: false
-          })
+          }
+          setAuthState(newState)
+          // Atualizar cache
+          sessionCache = { user: null, timestamp: Date.now() }
         }
+        
+        isCheckingAuth = false
       } catch (error) {
-        console.error('Erro na verificação de sessão:', error)
-        if (isMounted) {
-          setAuthState({
+        console.error('❌ Erro na verificação de sessão:', error)
+        clearTimeout(timeoutId)
+        isCheckingAuth = false
+        if (isMountedRef.current) {
+          const newState = {
             user: null,
             isLoading: false,
             isAuthenticated: false
-          })
+          }
+          setAuthState(newState)
+          // Atualizar cache
+          sessionCache = { user: null, timestamp: Date.now() }
         }
       }
     }
@@ -123,45 +204,60 @@ export const useAuth = () => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!isMounted) return
+        if (!isMountedRef.current) return
         
         console.log('🔄 Auth state change:', event)
+        
+        // Ignorar eventos INITIAL_SESSION para evitar loops
+        if (event === 'INITIAL_SESSION') {
+          return
+        }
         
         if (event === 'SIGNED_IN' && session?.user) {
           await loadUserProfile(session.user)
         } else if (event === 'SIGNED_OUT') {
-          setAuthState({
+          const newState = {
             user: null,
             isLoading: false,
             isAuthenticated: false
-          })
+          }
+          setAuthState(newState)
+          // Limpar cache no logout
+          sessionCache = { user: null, timestamp: Date.now() }
         }
       }
     )
 
     return () => {
-      isMounted = false
+      isMountedRef.current = false
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
+      isCheckingAuth = false
     }
-  }, []) // Array de dependências vazio - executa apenas uma vez
+  }, [checkCache]) // Incluir checkCache nas dependências
 
   // Cache para evitar recarregamentos desnecessários
   const [userCache, setUserCache] = useState<{ [key: string]: User }>({})
   
-  const loadUserProfile = async (authUser: SupabaseUser) => {
+  const loadUserProfile = useCallback(async (authUser: SupabaseUser, timeoutId?: NodeJS.Timeout) => {
     // Verificar cache primeiro
     if (userCache[authUser.id]) {
       console.log('📋 Usando perfil do cache')
-      setAuthState({
+      if (timeoutId) clearTimeout(timeoutId)
+      const newState = {
         user: userCache[authUser.id],
         isLoading: false,
         isAuthenticated: true
-      })
+      }
+      setAuthState(newState)
+      // Atualizar cache global
+      sessionCache = { user: userCache[authUser.id], timestamp: Date.now() }
       return
     }
     
     try {
       console.log('🔍 Carregando perfil do usuário:', authUser.email)
+      if (timeoutId) clearTimeout(timeoutId)
       
       // Tentar carregar da tabela users, mas não falhar se não conseguir
       const { data: userData, error } = await supabase
@@ -201,11 +297,14 @@ export const useAuth = () => {
       // Salvar no cache
       setUserCache(prev => ({ ...prev, [authUser.id]: user }))
       
-      setAuthState({
+      const newState = {
         user,
         isLoading: false,
         isAuthenticated: true
-      })
+      }
+      setAuthState(newState)
+      // Atualizar cache global
+      sessionCache = { user, timestamp: Date.now() }
     } catch (error) {
       console.log('⚠️ Erro ao acessar tabela users, usando dados do Auth:', error)
       
@@ -222,15 +321,18 @@ export const useAuth = () => {
       // Salvar no cache mesmo em caso de erro
       setUserCache(prev => ({ ...prev, [authUser.id]: user }))
 
-      setAuthState({
+      const newState = {
         user,
         isLoading: false,
         isAuthenticated: true
-      })
+      }
+      setAuthState(newState)
+      // Atualizar cache global
+      sessionCache = { user, timestamp: Date.now() }
     }
-  }
+  }, [userCache])
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     // Modo desenvolvimento - simular login
     if (isDevMode) {
       console.log('🔧 Modo desenvolvimento: simulando login')
@@ -239,11 +341,15 @@ export const useAuth = () => {
       hasLoggedOut = false
       localStorage.removeItem('ciliosclick_logout')
       
-      setAuthState({
-        user: { ...mockUser, email },
+      const user = { ...mockUser, email }
+      const newState = {
+        user,
         isLoading: false,
         isAuthenticated: true
-      })
+      }
+      setAuthState(newState)
+      // Atualizar cache
+      sessionCache = { user, timestamp: Date.now() }
       return { success: true }
     }
 
@@ -279,7 +385,7 @@ export const useAuth = () => {
       console.error('❌ Erro geral no login:', error)
       return { success: false, error: 'Erro interno no servidor' }
     }
-  }
+  }, [loadUserProfile])
 
   const register = async (email: string, password: string, nome: string): Promise<{ success: boolean; error?: string }> => {
     // Modo desenvolvimento - simular registro
@@ -322,11 +428,12 @@ export const useAuth = () => {
     }
   }
 
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     console.log('🚪 Iniciando logout...')
     
-    // Limpar cache
+    // Limpar todos os caches
     setUserCache({})
+    sessionCache = null
     
     // Modo desenvolvimento - simular logout
     if (isDevMode) {
@@ -340,11 +447,12 @@ export const useAuth = () => {
       localStorage.removeItem('ciliosclick_user')
       localStorage.removeItem('ciliosclick_session')
       
-      setAuthState({
+      const newState = {
         user: null,
         isLoading: false,
         isAuthenticated: false
-      })
+      }
+      setAuthState(newState)
       
       console.log('✅ Logout completo - estado limpo')
       return
@@ -352,27 +460,29 @@ export const useAuth = () => {
 
     try {
       await supabase.auth.signOut()
-      setAuthState({
+      const newState = {
         user: null,
         isLoading: false,
         isAuthenticated: false
-      })
+      }
+      setAuthState(newState)
       console.log('✅ Logout realizado com sucesso')
     } catch (error) {
       console.error('Erro no logout:', error)
       // Mesmo com erro, limpar estado local
-      setAuthState({
+      const newState = {
         user: null,
         isLoading: false,
         isAuthenticated: false
-      })
+      }
+      setAuthState(newState)
     }
-  }
+  }, [])
 
-  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     // Modo desenvolvimento - simular reset
     if (isDevMode) {
-      console.log('🔧 Modo desenvolvimento: simulando reset de senha')
+      console.log('🔧 Modo desenvolvimento: simulando reset de senha para', email)
       return { success: true }
     }
 
@@ -380,17 +490,18 @@ export const useAuth = () => {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       })
-
+      
       if (error) {
+        console.error('Erro no reset de senha:', error)
         return { success: false, error: error.message }
       }
-
+      
       return { success: true }
     } catch (error) {
-      console.error('Erro ao resetar senha:', error)
+      console.error('Erro geral no reset de senha:', error)
       return { success: false, error: 'Erro interno no servidor' }
     }
-  }
+  }, [])
 
   return {
     ...authState,

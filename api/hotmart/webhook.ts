@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { hotmartUsersService } from '../../src/services/hotmartUsersService';
+import { EmailService } from '../../src/services/emailService';
 
 // Cliente Supabase com service role para operações administrativas
 const supabase = createClient(
@@ -24,55 +26,47 @@ function generateSecurePassword(length: number = 12): string {
 
 // Função para enviar email com credenciais
 async function sendCredentialsEmail(email: string, username: string, password: string) {
-  // TODO: Implementar envio de email usando seu provedor preferido
-  // Por exemplo: SendGrid, Nodemailer, etc.
-  console.log(`📧 Enviando credenciais para ${email}:`);
-  console.log(`   Usuário: ${username}`);
-  console.log(`   Senha: ${password}`);
-  
-  // Placeholder para implementação real do email
-  // await emailService.send({
-  //   to: email,
-  //   subject: 'Suas credenciais de acesso - CíliosClick',
-  //   template: 'credentials',
-  //   data: { username, password }
-  // });
+  try {
+    console.log(`📧 Enviando credenciais para ${email}`);
+    
+    const success = await EmailService.sendCredentialsEmail(
+      email,
+      username,
+      password,
+      process.env.NEXT_PUBLIC_APP_URL || 'https://ciliosclick.com/login'
+    );
+    
+    if (success) {
+      console.log(`✅ Email de credenciais enviado com sucesso para ${email}`);
+    } else {
+      console.error(`❌ Falha ao enviar email de credenciais para ${email}`);
+    }
+    
+    return success;
+  } catch (error) {
+    console.error(`❌ Erro ao enviar email de credenciais:`, error);
+    return false;
+  }
 }
 
 // Função para liberar usuário usando RPC (cancelamento/reembolso)
 async function releaseUser(buyerEmail: string, transactionId: string, notificationId: string) {
   try {
-    // Chama a função RPC para liberar usuário
-    const { data: result, error: rpcError } = await supabase
-      .rpc('release_pre_user', {
-        p_buyer_email: buyerEmail,
-        p_hotmart_transaction_id: transactionId,
-        p_hotmart_notification_id: notificationId
-      });
-
-    if (rpcError) {
-      throw rpcError;
-    }
-
-    if (!result || result.length === 0) {
-      console.log(`⚠️ Cancelamento já processado ou atribuição não encontrada para ${buyerEmail}`);
-      return { released: false, message: 'Already processed or no active assignment' };
-    }
-
-    const { username, released } = result[0];
+    // Usa o novo serviço consolidado para liberar usuário
+    const result = await hotmartUsersService.releaseUser(transactionId, notificationId);
     
-    if (released) {
-      console.log(`✅ Usuário ${username} liberado com sucesso para ${buyerEmail}`);
-      return { released: true, username, message: 'User released successfully' };
+    if (!result || !result.success) {
+      console.log('⚠️ Usuário não encontrado ou já liberado');
+      return false;
     }
     
-    return { released: false, message: 'User not released' };
-    
+    console.log(`✅ Usuário ${result.username} liberado com sucesso`);
+    return true;
   } catch (error) {
     console.error('❌ Erro ao liberar usuário:', error);
-    throw error;
+    return false;
   }
-}
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -116,42 +110,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const passwordHash = await bcrypt.hash(password, 12);
 
       try {
-        // Chama a função RPC para alocar usuário
-        const { data: result, error: rpcError } = await supabase
-          .rpc('assign_pre_user', {
-            p_buyer_email: buyer.email,
-            p_buyer_name: buyer.name,
-            p_hotmart_transaction_id: purchase.transaction,
-            p_hotmart_notification_id: payload.id,
-            p_password_hash: passwordHash
-          });
+        // Usa o novo serviço consolidado para atribuir usuário
+        const result = await hotmartUsersService.assignUser(
+          buyer.email,
+          buyer.name,
+          purchase.transaction,
+          payload.id,
+          passwordHash
+        );
 
-        if (rpcError) {
-          if (rpcError.message.includes('no_available_user')) {
+        if (!result) {
+          console.log('⚠️ Notificação já processada');
+          return res.status(200).json({ message: 'Already processed' });
+        }
+
+        if (!result.success) {
+          if (result.message.includes('Nenhum usuário disponível')) {
             console.log('⚠️ Nenhum usuário disponível');
             return res.status(503).json({ 
               error: 'No available users', 
               message: 'Please retry later' 
             });
           }
-          throw rpcError;
+          throw new Error(result.message);
         }
 
-        if (!result || result.length === 0) {
-          console.log('⚠️ Notificação já processada');
-          return res.status(200).json({ message: 'Already processed' });
-        }
-
-        const { username } = result[0];
-        
         // Envia email com credenciais
-        await sendCredentialsEmail(buyer.email, username, password);
+        await sendCredentialsEmail(buyer.email, result.username, password);
         
-        console.log(`✅ Usuário ${username} alocado para ${buyer.email}`);
+        console.log(`✅ Usuário ${result.username} alocado para ${buyer.email}`);
         
         return res.status(200).json({ 
           message: 'User assigned successfully',
-          username: username
+          username: result.username
         });
         
       } catch (error) {
@@ -165,18 +156,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { buyer, purchase } = data;
       
       try {
-        const result = await releaseUser(buyer.email, purchase.transaction, payload.id);
+        const released = await releaseUser(buyer.email, purchase.transaction, payload.id);
         
-        if (result.released) {
-          console.log(`✅ Usuário ${result.username} liberado para ${buyer.email}`);
+        if (released) {
+          console.log(`✅ Usuário liberado para ${buyer.email}`);
         } else {
-          console.log(`ℹ️ ${result.message} para ${buyer.email}`);
+          console.log(`ℹ️ Usuário não encontrado ou já liberado para ${buyer.email}`);
         }
         
         return res.status(200).json({ 
-          message: result.message,
-          username: result.username || null,
-          released: result.released
+          message: released ? 'User released successfully' : 'User not found or already released',
+          released: released
         });
         
       } catch (error) {

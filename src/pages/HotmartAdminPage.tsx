@@ -15,42 +15,39 @@ import {
   Ban,
   Play
 } from 'lucide-react';
-import { hotmartPreUsersService, type Estatisticas, type PreUser, type UserAssignment } from '../services/hotmartPreUsersService';
+import { hotmartUsersService, type HotmartEstatisticas, type HotmartUser } from '../services/hotmartUsersService';
 import { toast } from 'sonner';
 
 const HotmartAdminPage: React.FC = () => {
-  const [estatisticas, setEstatisticas] = useState<Estatisticas>({
+  const [estatisticas, setEstatisticas] = useState<HotmartEstatisticas>({
     usuarios_disponiveis: 0,
     usuarios_ocupados: 0,
     usuarios_suspensos: 0,
+    usuarios_admin: 0,
     total_usuarios: 0,
-    total_atribuicoes: 0,
-    atribuicoes_ativas: 0,
-    atribuicoes_canceladas: 0
+    total_geral: 0,
+    usuarios_com_hotmart: 0
   });
   
-  const [preUsers, setPreUsers] = useState<PreUser[]>([]);
-  const [userAssignments, setUserAssignments] = useState<UserAssignment[]>([]);
+  const [hotmartUsers, setHotmartUsers] = useState<HotmartUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantidadeUsuarios, setQuantidadeUsuarios] = useState(50);
   const [criandoUsuarios, setCriandoUsuarios] = useState(false);
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'assignments'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'create'>('stats');
 
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const [stats, users, assignments] = await Promise.all([
-        hotmartPreUsersService.getEstatisticas(),
-        hotmartPreUsersService.getPreUsers(100, 0),
-        hotmartPreUsersService.getUserAssignments(50, 0)
+      const [statsData, usersData] = await Promise.all([
+        hotmartUsersService.getEstatisticas(),
+        hotmartUsersService.getHotmartUsers()
       ]);
       
-      setEstatisticas(stats);
-      setPreUsers(users);
-      setUserAssignments(assignments);
+      setEstatisticas(statsData);
+      setHotmartUsers(usersData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados do sistema');
+      toast.error('Erro ao carregar dados do painel');
     } finally {
       setLoading(false);
     }
@@ -64,7 +61,7 @@ const HotmartAdminPage: React.FC = () => {
 
     try {
       setCriandoUsuarios(true);
-      const resultado = await hotmartPreUsersService.criarUsuariosPreCriados(quantidadeUsuarios);
+      const resultado = await hotmartUsersService.criarUsuariosHotmart(quantidadeUsuarios);
       
       toast.success(`${resultado.sucesso} usuários criados com sucesso!`);
       if (resultado.erro > 0) {
@@ -82,7 +79,7 @@ const HotmartAdminPage: React.FC = () => {
 
   const suspenderUsuario = async (userId: string) => {
     try {
-      await hotmartPreUsersService.suspendPreUser(userId);
+      await hotmartUsersService.suspendUser(userId);
       toast.success('Usuário suspenso com sucesso');
       await carregarDados();
     } catch (error) {
@@ -93,7 +90,7 @@ const HotmartAdminPage: React.FC = () => {
 
   const reativarUsuario = async (userId: string) => {
     try {
-      await hotmartPreUsersService.reactivatePreUser(userId);
+      await hotmartUsersService.reactivateUser(userId);
       toast.success('Usuário reativado com sucesso');
       await carregarDados();
     } catch (error) {
@@ -115,16 +112,7 @@ const HotmartAdminPage: React.FC = () => {
     }
   };
 
-  const getAssignmentStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="success"><Play className="w-3 h-3 mr-1" />Ativo</Badge>;
-      case 'cancelled':
-        return <Badge variant="danger"><Ban className="w-3 h-3 mr-1" />Cancelado</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+
 
   useEffect(() => {
     carregarDados();
@@ -142,25 +130,37 @@ const HotmartAdminPage: React.FC = () => {
         </div>
         
         {/* Navegação por abas */}
-        <div className="flex space-x-1 mb-6">
-          <Button 
-            variant={activeTab === 'stats' ? 'primary' : 'secondary'}
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
+          <button
             onClick={() => setActiveTab('stats')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'stats'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            Estatísticas
-          </Button>
-          <Button 
-            variant={activeTab === 'users' ? 'primary' : 'secondary'}
+            📊 Estatísticas
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'users'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            Usuários Pré-criados
-          </Button>
-          <Button 
-            variant={activeTab === 'assignments' ? 'primary' : 'secondary'}
-            onClick={() => setActiveTab('assignments')}
+            👥 Usuários
+          </button>
+          <button
+            onClick={() => setActiveTab('create')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'create'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            Atribuições
-          </Button>
+            ➕ Criar Usuários
+          </button>
         </div>
 
         {/* Aba de Estatísticas */}
@@ -203,12 +203,12 @@ const HotmartAdminPage: React.FC = () => {
               
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total de Atribuições</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
                   <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{estatisticas.total_atribuicoes}</div>
-                  <p className="text-xs text-muted-foreground">Histórico completo</p>
+                  <div className="text-2xl font-bold">{estatisticas.total_usuarios}</div>
+                  <p className="text-xs text-muted-foreground">Sistema completo</p>
                 </CardContent>
               </Card>
             </div>
@@ -255,11 +255,11 @@ const HotmartAdminPage: React.FC = () => {
           </>
         )}
 
-        {/* Aba de Usuários Pré-criados */}
+        {/* Aba de Usuários */}
         {activeTab === 'users' && (
           <Card>
             <CardHeader>
-              <CardTitle>Usuários Pré-criados ({preUsers.length})</CardTitle>
+              <CardTitle>Usuários Hotmart ({hotmartUsers.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -269,16 +269,27 @@ const HotmartAdminPage: React.FC = () => {
                       <th className="text-left p-2">Username</th>
                       <th className="text-left p-2">Email</th>
                       <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">Comprador</th>
                       <th className="text-left p-2">Criado em</th>
                       <th className="text-left p-2">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {preUsers.map((user) => (
+                    {hotmartUsers.map((user) => (
                       <tr key={user.id} className="border-b hover:bg-gray-50">
                         <td className="p-2 font-mono">{user.username}</td>
                         <td className="p-2">{user.email}</td>
                         <td className="p-2">{getStatusBadge(user.status)}</td>
+                        <td className="p-2">
+                          {user.hotmart_buyer_email ? (
+                            <div>
+                              <div className="font-medium">{user.hotmart_buyer_name}</div>
+                              <div className="text-sm text-gray-500">{user.hotmart_buyer_email}</div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
                         <td className="p-2">{new Date(user.created_at).toLocaleDateString('pt-BR')}</td>
                         <td className="p-2">
                           <div className="flex space-x-2">
@@ -313,45 +324,55 @@ const HotmartAdminPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Aba de Atribuições */}
-        {activeTab === 'assignments' && (
+        {/* Aba de Criar Usuários */}
+        {activeTab === 'create' && (
           <Card>
             <CardHeader>
-              <CardTitle>Atribuições de Usuários ({userAssignments.length})</CardTitle>
+              <CardTitle>Criar Usuários em Lote</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Username</th>
-                      <th className="text-left p-2">Comprador</th>
-                      <th className="text-left p-2">Email do Comprador</th>
-                      <th className="text-left p-2">Evento</th>
-                      <th className="text-left p-2">Status</th>
-                      <th className="text-left p-2">Atribuído em</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {userAssignments.map((assignment) => (
-                      <tr key={assignment.id} className="border-b hover:bg-gray-50">
-                        <td className="p-2 font-mono">
-                          {assignment.pre_user?.username || 'N/A'}
-                        </td>
-                        <td className="p-2">{assignment.buyer_name}</td>
-                        <td className="p-2">{assignment.buyer_email}</td>
-                        <td className="p-2">
-                          <Badge variant="secondary">{assignment.event}</Badge>
-                        </td>
-                        <td className="p-2">{getAssignmentStatusBadge(assignment.status)}</td>
-                        <td className="p-2">
-                          {new Date(assignment.assigned_at).toLocaleDateString('pt-BR')} às{' '}
-                          {new Date(assignment.assigned_at).toLocaleTimeString('pt-BR')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Quantidade de usuários a criar:
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={quantidadeUsuarios}
+                    onChange={(e) => setQuantidadeUsuarios(Number(e.target.value))}
+                    className="w-32"
+                  />
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Preview dos usuários:</h4>
+                  <div className="text-sm text-blue-700">
+                    <p>• Usernames: user0001, user0002, ..., user{String(quantidadeUsuarios).padStart(4, '0')}</p>
+                    <p>• Emails: user0001@ciliosclick.com, user0002@ciliosclick.com, ...</p>
+                    <p>• Senhas: Geradas automaticamente (letras + números)</p>
+                    <p>• Status: Todos criados como 'available'</p>
+                  </div>
+                </div>
+                
+                <Button
+                  onClick={criarUsuarios}
+                  disabled={criandoUsuarios || quantidadeUsuarios < 1}
+                  className="w-full"
+                >
+                  {criandoUsuarios ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Criando usuários...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar {quantidadeUsuarios} usuários
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>

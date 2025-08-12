@@ -42,10 +42,10 @@ export const HOTMART_CONFIG = {
   // URLs do sistema
   SYSTEM_URLS: {
     LOGIN: process.env.NODE_ENV === 'production' 
-      ? 'https://ciliosclick.com/login'
+      ? 'https://clik-cilios2-0.vercel.app/login'
       : 'http://localhost:5173/login',
     DASHBOARD: process.env.NODE_ENV === 'production'
-      ? 'https://ciliosclick.com/dashboard' 
+      ? 'https://clik-cilios2-0.vercel.app/dashboard' 
       : 'http://localhost:5173/dashboard'
   }
 };

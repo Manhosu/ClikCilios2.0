@@ -26,6 +26,13 @@ interface ParceiraNotificationData {
   purchaseValue: number
 }
 
+interface CredentialsEmailData {
+  userName: string
+  userEmail: string
+  password: string
+  loginUrl: string
+}
+
 /**
  * Serviço para gerar templates de email
  */
@@ -247,4 +254,91 @@ Equipe CíliosClick
 Juntas, transformando atendimentos em experiências inesquecíveis! ✨
     `.trim()
   }
-} 
+
+  /**
+   * Template de email com credenciais de acesso
+   */
+  static credentialsEmail(data: CredentialsEmailData): EmailTemplate {
+    const subject = '🔐 Suas credenciais de acesso - CíliosClick'
+    
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credenciais de Acesso - CíliosClick</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+    <div style="background-color: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0;">
+            <div style="font-size: 32px; font-weight: bold; color: #7c3aed; margin-bottom: 10px;">CíliosClick</div>
+            <h1>🔐 Suas Credenciais de Acesso</h1>
+        </div>
+
+        <p>Olá, <strong>${data.userName}</strong>!</p>
+        
+        <p>Sua compra foi processada com sucesso e seu acesso à plataforma <strong>CíliosClick</strong> já está liberado!</p>
+
+        <div style="background-color: #f1f5f9; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #7c3aed;">
+            <h3>🔑 Seus dados de acesso:</h3>
+            <p><strong>URL de acesso:</strong> <a href="${data.loginUrl}" style="color: #7c3aed;">${data.loginUrl}</a></p>
+            <p><strong>E-mail:</strong> ${data.userEmail}</p>
+            <p><strong>Senha:</strong> <code style="background-color: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${data.password}</code></p>
+        </div>
+
+        <div style="background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <strong>🔒 Importante:</strong> Por segurança, recomendamos que você altere sua senha após o primeiro login.
+        </div>
+
+        <div style="background-color: #f8fafc; padding: 25px; border-radius: 8px; margin: 25px 0;">
+            <h3>🚀 Primeiros passos:</h3>
+            <div style="margin-bottom: 15px; padding-left: 10px;">1. <strong>Faça login</strong> com suas credenciais</div>
+            <div style="margin-bottom: 15px; padding-left: 10px;">2. <strong>Altere sua senha</strong> nas configurações</div>
+            <div style="margin-bottom: 15px; padding-left: 10px;">3. <strong>Explore a plataforma</strong> e comece a aplicar cílios</div>
+            <div style="margin-bottom: 15px; padding-left: 10px;">4. <strong>Teste com algumas fotos</strong> para se familiarizar</div>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <a href="${data.loginUrl}" style="display: inline-block; background-color: #7c3aed; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Fazer Login Agora</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #6b7280; font-size: 14px;">
+            <p>Se tiver dúvidas, entre em contato com nosso suporte.</p>
+            <p><strong>Bem-vinda à CíliosClick!</strong><br>Equipe CíliosClick</p>
+        </div>
+    </div>
+</body>
+</html>`
+
+    const textContent = `
+Olá, ${data.userName}!
+
+Sua compra foi processada com sucesso e seu acesso à plataforma CíliosClick já está liberado!
+
+🔑 SEUS DADOS DE ACESSO:
+URL: ${data.loginUrl}
+E-mail: ${data.userEmail}
+Senha: ${data.password}
+
+🔒 IMPORTANTE: Por segurança, recomendamos que você altere sua senha após o primeiro login.
+
+🚀 PRIMEIROS PASSOS:
+1. Faça login com suas credenciais
+2. Altere sua senha nas configurações
+3. Explore a plataforma e comece a aplicar cílios
+4. Teste com algumas fotos para se familiarizar
+
+Se tiver dúvidas, entre em contato com nosso suporte.
+
+Bem-vinda à CíliosClick!
+Equipe CíliosClick
+`
+
+    return {
+      subject,
+      htmlContent,
+      textContent
+    }
+  }
+}

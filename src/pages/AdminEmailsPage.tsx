@@ -35,7 +35,7 @@ const AdminEmailsPage: React.FC = () => {
     const data = {
       userName: previewData.userName || 'Maria Silva',
       userEmail: previewData.userEmail || 'maria@exemplo.com',
-      loginUrl: 'https://ciliosclick.vercel.app/login',
+      loginUrl: 'https://clik-cilios2-0.vercel.app/login',
       cupomCode: previewData.cupomCode || '',
       parceiraName: previewData.parceiraName || ''
     }
@@ -320,4 +320,4 @@ const AdminEmailsPage: React.FC = () => {
   )
 }
 
-export default AdminEmailsPage 
+export default AdminEmailsPage

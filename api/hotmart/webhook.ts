@@ -2,8 +2,8 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { hotmartUsersService } from '../../src/services/hotmartUsersService';
-import { EmailService } from '../../src/services/emailService';
+import { hotmartUsersService } from '../../src/services/hotmartUsersService.js';
+import { EmailService } from '../../src/services/emailService.js';
 
 // Interfaces para substituir Next.js
 interface NextApiRequest {

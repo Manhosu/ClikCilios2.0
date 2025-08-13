@@ -187,7 +187,7 @@ async function sendCredentialsEmail(email: string, username: string, password: s
 async function releaseUser(transactionId: string, notificationId: string) {
   try {
     // Usa o serviço de usuários para liberar usuário
-    const result = await hotmartUsersService.releaseUser(transactionId, notificationId);
+    const result = await hotmartUsersService.releaseUserByTransaction(transactionId);
     
     if (!result) {
       console.log('⚠️ Usuário não encontrado ou já liberado');
@@ -245,12 +245,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       try {
         // Usa o serviço de usuários para atribuir usuário
-        const result = await hotmartUsersService.assignUser(
+        const result = await hotmartUsersService.assignUserToHotmart(
           buyer.email,
           buyer.name,
           purchase.transaction,
-          payload.id,
-          passwordHash
+          payload.id
         );
 
         if (!result) {

@@ -48,7 +48,7 @@ begin
     assigned_at
   ) values (
     sel.id, 
-    p_buyer_email, 
+    p_buyer_email,
     p_buyer_name, 
     p_hotmart_transaction_id, 
     p_hotmart_notification_id, 

@@ -105,6 +105,78 @@ Após essas correções, o webhook do Hotmart deve funcionar corretamente no amb
 4. `src/services/hotmartUsersService.ts` - Correção de imports
 5. `src/lib/supabase.ts` - Correção de variáveis de ambiente
 
+---
+
+## 4. Erro PGRST202 - Migração para Tabela Users
+
+### Problema Original
+```
+Error: { 
+  code: 'PGRST202', 
+  details: 'Searched for the function public.assign_user_hotmart with parameters p_buyer_email, p_buyer_name, p_hotmart_notification_id, p_hotmart_transaction_id, p_password_hash or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.', 
+  hint: 'Perhaps you meant to call the function public.assign_pre_user', 
+  message: 'Could not find the function public.assign_user_hotmart(...) in the schema cache' 
+}
+```
+
+### Solução Atual - Migração para Tabela Users
+Para melhor otimização, o sistema foi migrado da tabela `pre_users` para a tabela `users`.
+
+### Alterações Implementadas
+1. **Alterado o webhook** (`api/hotmart/webhook.ts`) para usar `HotmartUsersService` ao invés de `HotmartPreUsersService`
+2. **Substituído** `assignPreUser()` por `assignUser()`
+3. **Atualizado** a função `releaseUser()` para usar o serviço correto
+4. **Corrigido** as respostas de sucesso para usar `user_id` ao invés de `pre_user_id`
+
+**Implementação Atual:**
+```typescript
+import { hotmartUsersService } from '../../src/services/hotmartUsersService.js';
+
+// No webhook
+const result = await hotmartUsersService.assignUser(...);
+```
+
+### Ajustes na Lógica
+- Alteração da verificação de resultado (assignUser retorna dados do usuário quando processado)
+- Atualização da função `releaseUser` para usar `releaseUserHotmart`
+- Ajuste nas respostas de sucesso para incluir `user_id`
+
+### ⚠️ Pré-requisito Importante
+Para que esta correção funcione, é necessário que a seguinte migração SQL tenha sido executada no Supabase:
+
+1. `migrations/consolidate_users_hotmart.sql` - Migração completa para tabela users
+
+### Como executar a migração:
+
+1. **Acesse o Supabase Dashboard**
+   - Vá para [supabase.com](https://supabase.com)
+   - Faça login e selecione seu projeto
+
+2. **Abra o SQL Editor**
+   - No menu lateral, clique em "SQL Editor"
+   - Clique em "New query"
+
+3. **Execute a migração**
+   - Copie todo o conteúdo do arquivo `migrations/consolidate_users_hotmart.sql`
+   - Cole no SQL Editor
+   - Clique em "Run" para executar
+
+### O que a migração faz:
+- ✅ Adiciona campos necessários na tabela `users`
+- ✅ Cria as funções `assign_user_hotmart` e `release_user_hotmart`
+- ✅ Migra dados existentes de `pre_users` para `users`
+- ✅ Cria 200 usuários pré-configurados para Hotmart
+- ✅ Configura usuários administrativos
+- ✅ Atualiza políticas de segurança (RLS)
+
+### Verificação:
+Após executar a migração, você pode verificar se funcionou executando:
+```sql
+SELECT get_users_hotmart_stats();
+```
+
+Este comando deve retornar estatísticas dos usuários criados.
+
 ## Status
 
 ✅ **RESOLVIDO** - Correções aplicadas em todos os arquivos afetados
@@ -112,5 +184,5 @@ Após essas correções, o webhook do Hotmart deve funcionar corretamente no amb
 ---
 
 **Data da correção**: 13/08/2025  
-**Arquivos modificados**: 5  
-**Tipo de erro**: Resolução de módulos, variáveis de ambiente e configuração Supabase em produção
+**Arquivos modificados**: 6  
+**Tipo de erro**: Resolução de módulos, variáveis de ambiente, configuração Supabase e função de banco de dados em produção

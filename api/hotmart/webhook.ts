@@ -2,7 +2,10 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { hotmartUsersService } from '../../src/services/hotmartUsersService.js';
+import { HotmartUsersService } from '../../src/services/hotmartUsersService.js';
+
+// Instância do serviço
+const hotmartUsersService = new HotmartUsersService();
 import { EmailService } from '../../src/services/emailService.js';
 
 // Interfaces para substituir Next.js
@@ -73,10 +76,10 @@ async function sendCredentialsEmail(email: string, username: string, password: s
 // Função para liberar usuário usando RPC (cancelamento/reembolso)
 async function releaseUser(transactionId: string, notificationId: string) {
   try {
-    // Usa o novo serviço consolidado para liberar usuário
+    // Usa o serviço de usuários para liberar usuário
     const result = await hotmartUsersService.releaseUser(transactionId, notificationId);
     
-    if (!result || !result.success) {
+    if (!result) {
       console.log('⚠️ Usuário não encontrado ou já liberado');
       return false;
     }
@@ -131,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const passwordHash = await bcrypt.hash(password, 12);
 
       try {
-        // Usa o novo serviço consolidado para atribuir usuário
+        // Usa o serviço de usuários para atribuir usuário
         const result = await hotmartUsersService.assignUser(
           buyer.email,
           buyer.name,
@@ -141,19 +144,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         );
 
         if (!result) {
-          console.log('⚠️ Notificação já processada');
-          return res.status(200).json({ message: 'Already processed' });
-        }
-
-        if (!result.success) {
-          if (result.message.includes('Nenhum usuário disponível')) {
-            console.log('⚠️ Nenhum usuário disponível');
-            return res.status(503).json({ 
-              error: 'No available users', 
-              message: 'Please retry later' 
-            });
-          }
-          throw new Error(result.message);
+          console.log('⚠️ Notificação já processada ou nenhum usuário disponível');
+          return res.status(503).json({ 
+            error: 'No available users or already processed', 
+            message: 'Please retry later' 
+          });
         }
 
         // Envia email com credenciais
@@ -163,7 +158,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         return res.status(200).json({ 
           message: 'User assigned successfully',
-          username: result.username
+          username: result.username,
+          user_id: result.user_id
         });
         
       } catch (error) {

@@ -23,40 +23,115 @@ CREATE INDEX IF NOT EXISTS idx_users_assigned_at ON public.users(assigned_at);
 
 -- 3. Migrar dados existentes de pre_users para users (se a tabela existir)
 DO $$
+DECLARE
+    has_email_column BOOLEAN;
+    has_password_hash_column BOOLEAN;
+    has_status_column BOOLEAN;
+    has_metadata_column BOOLEAN;
+    has_created_at_column BOOLEAN;
+    has_updated_at_column BOOLEAN;
 BEGIN
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'pre_users') THEN
-        -- Migrar usuários de pre_users para users
-        INSERT INTO public.users (
-            id,
-            username,
-            email,
-            password_hash,
-            status,
-            nome,
-            is_admin,
-            onboarding_completed,
-            metadata,
-            created_at,
-            updated_at
-        )
-        SELECT 
-            gen_random_uuid() as id,
-            username,
-            email,
-            password_hash,
-            status,
-            COALESCE(SPLIT_PART(email, '@', 1), username) as nome,
-            false as is_admin,
-            false as onboarding_completed,
-            COALESCE(metadata, '{}'::jsonb) as metadata,
-            created_at,
-            updated_at
-        FROM public.pre_users
-        WHERE NOT EXISTS (
-            SELECT 1 FROM public.users WHERE users.email = pre_users.email
-        );
+        -- Verificar quais colunas existem na tabela pre_users
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'pre_users' AND column_name = 'email'
+        ) INTO has_email_column;
         
-        RAISE NOTICE 'Dados migrados de pre_users para users';
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'pre_users' AND column_name = 'password_hash'
+        ) INTO has_password_hash_column;
+        
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'pre_users' AND column_name = 'status'
+        ) INTO has_status_column;
+        
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'pre_users' AND column_name = 'metadata'
+        ) INTO has_metadata_column;
+        
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'pre_users' AND column_name = 'created_at'
+        ) INTO has_created_at_column;
+        
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'pre_users' AND column_name = 'updated_at'
+        ) INTO has_updated_at_column;
+        
+        -- Migrar usuários de pre_users para users com colunas condicionais
+        IF has_email_column THEN
+            INSERT INTO public.users (
+                id,
+                username,
+                email,
+                password_hash,
+                status,
+                nome,
+                is_admin,
+                onboarding_completed,
+                metadata,
+                created_at,
+                updated_at
+            )
+            SELECT 
+                gen_random_uuid() as id,
+                pre_users.username,
+                CASE WHEN has_email_column THEN pre_users.email ELSE pre_users.username || '@ciliosclick.com' END,
+                CASE WHEN has_password_hash_column THEN pre_users.password_hash ELSE NULL END,
+                CASE WHEN has_status_column THEN pre_users.status ELSE 'available' END,
+                COALESCE(
+                    CASE WHEN has_email_column THEN SPLIT_PART(pre_users.email, '@', 1) ELSE pre_users.username END,
+                    pre_users.username
+                ) as nome,
+                false as is_admin,
+                false as onboarding_completed,
+                CASE WHEN has_metadata_column THEN COALESCE(pre_users.metadata, '{}'::jsonb) ELSE '{}'::jsonb END,
+                CASE WHEN has_created_at_column THEN pre_users.created_at ELSE NOW() END,
+                CASE WHEN has_updated_at_column THEN pre_users.updated_at ELSE NOW() END
+            FROM public.pre_users
+            WHERE NOT EXISTS (
+                SELECT 1 FROM public.users WHERE users.email = 
+                    CASE WHEN has_email_column THEN pre_users.email ELSE pre_users.username || '@ciliosclick.com' END
+            );
+        ELSE
+            -- Se não tem coluna email, criar email baseado no username
+            INSERT INTO public.users (
+                id,
+                username,
+                email,
+                password_hash,
+                status,
+                nome,
+                is_admin,
+                onboarding_completed,
+                metadata,
+                created_at,
+                updated_at
+            )
+            SELECT 
+                gen_random_uuid() as id,
+                pre_users.username,
+                pre_users.username || '@ciliosclick.com' as email,
+                CASE WHEN has_password_hash_column THEN pre_users.password_hash ELSE NULL END,
+                CASE WHEN has_status_column THEN pre_users.status ELSE 'available' END,
+                pre_users.username as nome,
+                false as is_admin,
+                false as onboarding_completed,
+                CASE WHEN has_metadata_column THEN COALESCE(pre_users.metadata, '{}'::jsonb) ELSE '{}'::jsonb END,
+                CASE WHEN has_created_at_column THEN pre_users.created_at ELSE NOW() END,
+                CASE WHEN has_updated_at_column THEN pre_users.updated_at ELSE NOW() END
+            FROM public.pre_users
+            WHERE NOT EXISTS (
+                SELECT 1 FROM public.users WHERE users.email = pre_users.username || '@ciliosclick.com'
+            );
+        END IF;
+        
+        -- RAISE NOTICE 'Dados migrados de pre_users para users';
     END IF;
 END $$;
 
@@ -362,4 +437,4 @@ INSERT INTO public.users (
         to_jsonb(NOW())
     );
 
-RAISE NOTICE 'Migração concluída: Sistema consolidado para Hotmart com 200 usuários pré-criados';
+-- Migração concluída: Sistema consolidado para Hotmart com 200 usuários pré-criados

@@ -439,10 +439,8 @@ export class HotmartService {
   /**
    * Processar cancelamento de compra
    */
-  static async processarCancelamento(webhookData: HotmartWebhookData): Promise<ProcessamentoHotmart> {
+  static async processarCancelamento(): Promise<ProcessamentoHotmart> {
     try {
-      const { data: { purchase } } = webhookData
-
       // Processando cancelamento - log removido para produção
 
       // Por enquanto, apenas registrar o cancelamento

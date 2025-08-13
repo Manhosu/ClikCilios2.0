@@ -1,5 +1,15 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+// import { NextApiRequest, NextApiResponse } from 'next';
 import { EmailService } from '../src/services/emailService';
+
+interface NextApiRequest {
+  method?: string;
+  body: any;
+}
+
+interface NextApiResponse {
+  status: (code: number) => NextApiResponse;
+  json: (data: any) => void;
+}
 
 interface EmailRequest {
   type: 'credentials' | 'welcome' | 'parceira';
@@ -13,7 +23,6 @@ interface EmailRequest {
     // Para welcome
     userEmail?: string;
     cupomCode?: string;
-    parceiraName?: string;
     
     // Para parceira
     parceiraEmail?: string;

@@ -1,9 +1,21 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+// import { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { hotmartUsersService } from '../../src/services/hotmartUsersService';
 import { EmailService } from '../../src/services/emailService';
+
+// Interfaces para substituir Next.js
+interface NextApiRequest {
+  method?: string;
+  body: any;
+  headers: { [key: string]: string | string[] | undefined };
+}
+
+interface NextApiResponse {
+  status: (code: number) => NextApiResponse;
+  json: (data: any) => void;
+}
 
 // Cliente Supabase com service role para operações administrativas
 const supabase = createClient(
@@ -50,7 +62,7 @@ async function sendCredentialsEmail(email: string, username: string, password: s
 }
 
 // Função para liberar usuário usando RPC (cancelamento/reembolso)
-async function releaseUser(buyerEmail: string, transactionId: string, notificationId: string) {
+async function releaseUser(transactionId: string, notificationId: string) {
   try {
     // Usa o novo serviço consolidado para liberar usuário
     const result = await hotmartUsersService.releaseUser(transactionId, notificationId);
@@ -66,7 +78,7 @@ async function releaseUser(buyerEmail: string, transactionId: string, notificati
     console.error('❌ Erro ao liberar usuário:', error);
     return false;
   }
-
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -156,7 +168,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { buyer, purchase } = data;
       
       try {
-        const released = await releaseUser(buyer.email, purchase.transaction, payload.id);
+        const released = await releaseUser(purchase.transaction, payload.id);
         
         if (released) {
           console.log(`✅ Usuário liberado para ${buyer.email}`);

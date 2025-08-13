@@ -90,24 +90,12 @@ CREATE POLICY "Allow service role updates" ON public.webhook_events
 VITE_SUPABASE_URL=https://gguxeqpayaangiplggme.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdndXhlcXBheWFhbmdpcGxnZ21lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NDYwOTYsImV4cCI6MjA2NTQyMjA5Nn0.WHusG12ZcOYtVSGUQVUT3Vf-MIbu_O6hlc3ha7yVnSE
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdndXhlcXBheWFhbmdpcGxnZ21lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTg0NjA5NiwiZXhwIjoyMDY1NDIyMDk2fQ.782bdkQ0eiNSqF55VzIyv4kMLoKecXCOq85apB1E7MI
-
-# ========================================
-# HOTMART (OBRIGATÓRIAS)
-# ========================================
 VITE_HOTMART_WEBHOOK_SECRET=gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074
 HOTMART_HOTTOK=gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074
 VITE_HOTMART_ENABLED=true
-
-# ========================================
-# EMAIL (OBRIGATÓRIAS)
-# ========================================
 SENDGRID_API_KEY=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
 SENDGRID_FROM_EMAIL=carinaprange86@gmail.com
 SENDGRID_FROM_NAME=ClikCílios
-
-# ========================================
-# APLICAÇÃO (OBRIGATÓRIAS)
-# ========================================
 NEXT_PUBLIC_APP_URL=https://clik-cilios2-0.vercel.app
 NODE_ENV=production
 ```

@@ -38,7 +38,7 @@ export class EmailService {
   ): Promise<boolean> {
     try {
       // Verificar se o usuário já existe e pode fazer login
-      const { data: loginTest, error: loginError } = await supabase.auth.signInWithPassword({
+      const { data: loginTest } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -178,14 +178,14 @@ export class EmailService {
       userName,
       password,
       loginUrl,
-      email
+      userEmail: email
     });
 
     const emailSent = await this.sendEmail({
       to: email,
       subject: template.subject,
-      htmlContent: template.html,
-      textContent: template.text
+      htmlContent: template.htmlContent,
+      textContent: template.textContent
     });
 
     if (emailSent) {
@@ -226,8 +226,8 @@ export class EmailService {
     const emailSent = await this.sendEmail({
       to: email,
       subject: template.subject,
-      htmlContent: template.html,
-      textContent: template.text
+      htmlContent: template.htmlContent,
+      textContent: template.textContent
     });
 
     if (emailSent) {

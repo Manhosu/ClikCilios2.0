@@ -1,6 +1,19 @@
-import { NextApiRequest, NextApiResponse } from 'next'
+// import { NextApiRequest, NextApiResponse } from 'next'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+
+// Interfaces para substituir Next.js
+interface NextApiRequest {
+  method?: string;
+  body: any;
+  headers: { [key: string]: string | string[] | undefined };
+  on: (event: string, callback: (data: any) => void) => void;
+}
+
+interface NextApiResponse {
+  status: (code: number) => NextApiResponse;
+  json: (data: any) => void;
+}
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL!
@@ -102,10 +115,6 @@ function validarEstrutura(data: any): data is HotmartWebhookData {
 }
 
 // Gerar senha temporária
-function gerarSenhaTemporaria(): string {
-  return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12)
-}
-
 // Criar ou buscar usuário
 async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
   try {
@@ -236,9 +245,9 @@ async function processarCompraAprovada(data: HotmartWebhookData) {
 function getRawBody(req: NextApiRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('data', (chunk: Buffer) => chunks.push(chunk))
     req.on('end', () => resolve(Buffer.concat(chunks)))
-    req.on('error', (err) => reject(err))
+    req.on('error', (err: Error) => reject(err))
   })
 }
 

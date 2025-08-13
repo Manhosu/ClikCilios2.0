@@ -76,6 +76,41 @@ Após aplicar essas correções:
 - Considerar configurar o TypeScript para exigir extensões explícitas durante o desenvolvimento
 - Testar em ambiente similar ao de produção antes do deploy
 
+## Erro Adicional Identificado: import.meta.env
+
+### Problema
+```
+TypeError: Cannot read properties of undefined (reading 'VITE_SUPABASE_URL')
+at <anonymous> (/vercel/path0/src/lib/supabase.ts:3:37)
+```
+
+### Causa
+O `import.meta.env` não está disponível no contexto de API do Vercel (Node.js), apenas no frontend (Vite).
+
+### Correção Aplicada
+
+**Arquivo: `src/lib/supabase.ts`**
+
+**Antes:**
+```typescript
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+```
+
+**Depois:**
+```typescript
+// Detectar se estamos em ambiente de API (Vercel) ou frontend (Vite)
+const isApiContext = typeof import.meta === 'undefined' || !import.meta.env
+
+const supabaseUrl = isApiContext 
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  : import.meta.env.VITE_SUPABASE_URL
+
+const supabaseAnonKey = isApiContext 
+  ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  : import.meta.env.VITE_SUPABASE_ANON_KEY
+```
+
 ## Status
 
 ✅ **RESOLVIDO** - Correções aplicadas em todos os arquivos afetados
@@ -83,5 +118,5 @@ Após aplicar essas correções:
 ---
 
 **Data da correção**: 13/08/2025  
-**Arquivos modificados**: 3  
-**Tipo de erro**: Resolução de módulos em produção
+**Arquivos modificados**: 4  
+**Tipo de erro**: Resolução de módulos e variáveis de ambiente em produção

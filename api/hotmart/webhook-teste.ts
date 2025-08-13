@@ -27,8 +27,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('✅ Teste 1: Webhook iniciado com sucesso');
     
     // Teste 2: Verificar variáveis de ambiente
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+  throw new Error('SUPABASE_URL não configurada. Configure NEXT_PUBLIC_SUPABASE_URL ou VITE_SUPABASE_URL no Vercel.');
+}
+
+if (!serviceKey) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel.');
+}
     const hotmartToken = process.env.HOTMART_HOTTOK;
     
     console.log('🔍 Teste 2: Verificando variáveis...');

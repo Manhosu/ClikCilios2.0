@@ -1,8 +1,12 @@
-# Solução para Erro ERR_MODULE_NOT_FOUND no Webhook Hotmart
+# Solução para Erros ERR_MODULE_NOT_FOUND e TypeError no Webhook Hotmart
 
 ## Problema Identificado
 
-O erro `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/src/services/hotmartUsersService'` estava ocorrendo no Vercel porque as importações de módulos TypeScript não incluíam a extensão `.js` necessária para o ambiente de produção.
+O webhook do Hotmart estava retornando erro 500 devido a três problemas principais:
+
+1. **ERR_MODULE_NOT_FOUND**: Módulos TypeScript não estavam sendo encontrados no ambiente de produção Vercel
+2. **TypeError**: `import.meta.env` não está disponível no contexto da API Vercel
+3. **supabaseUrl is required**: Variáveis de ambiente não configuradas corretamente no Vercel
 
 ## Erro Original
 ```
@@ -13,91 +17,36 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/src/services/hotmart
 
 No Vercel, quando o TypeScript é compilado para JavaScript, as importações precisam incluir a extensão `.js` para que o Node.js possa resolver os módulos corretamente em ambiente de produção.
 
-## Correções Aplicadas
+## Soluções Implementadas
 
-### 1. Arquivo: `api/hotmart/webhook.ts`
-**Antes:**
+### 1. Correção de Imports TypeScript (ERR_MODULE_NOT_FOUND)
+
+**Problema**: No ambiente Vercel, os imports TypeScript precisam incluir a extensão `.js` para serem resolvidos corretamente.
+
+**Arquivos modificados**:
+- `api/hotmart/webhook.ts`
+- `src/services/emailService.ts`
+- `src/services/hotmartUsersService.ts`
+
+**Mudanças realizadas**:
 ```typescript
+// ANTES
 import { hotmartUsersService } from '../../src/services/hotmartUsersService';
 import { EmailService } from '../../src/services/emailService';
-```
 
-**Depois:**
-```typescript
+// DEPOIS
 import { hotmartUsersService } from '../../src/services/hotmartUsersService.js';
 import { EmailService } from '../../src/services/emailService.js';
 ```
 
-### 2. Arquivo: `src/services/emailService.ts`
-**Antes:**
-```typescript
-import { EmailTemplatesService } from './emailTemplates';
-```
+### 2. Correção de Variáveis de Ambiente (TypeError)
 
-**Depois:**
-```typescript
-import { EmailTemplatesService } from './emailTemplates.js';
-```
+**Problema**: `import.meta.env` não está disponível no contexto da API Vercel, causando `TypeError: Cannot read properties of undefined (reading 'VITE_SUPABASE_URL')`.
 
-### 3. Arquivo: `src/services/hotmartUsersService.ts`
-**Antes:**
-```typescript
-import { supabase } from '../lib/supabase';
-```
+**Arquivo modificado**: `src/lib/supabase.ts`
 
-**Depois:**
-```typescript
-import { supabase } from '../lib/supabase.js';
-```
+**Solução**: Detecção dinâmica do ambiente para usar `process.env` ou `import.meta.env` conforme apropriado:
 
-## Por que isso acontece?
-
-1. **Desenvolvimento local**: O TypeScript resolve as importações automaticamente sem precisar da extensão `.js`
-2. **Produção (Vercel)**: O código é compilado para JavaScript e o Node.js precisa da extensão explícita para resolver os módulos
-3. **Diferença de ambiente**: O que funciona localmente pode falhar em produção devido a essa diferença
-
-## Verificação da Solução
-
-Após aplicar essas correções:
-
-1. ✅ O webhook deve parar de retornar erro 500 por módulo não encontrado
-2. ✅ As importações serão resolvidas corretamente no Vercel
-3. ✅ O sistema continuará funcionando normalmente em desenvolvimento
-
-## Próximos Passos
-
-1. **Deploy**: Fazer o deploy das correções no Vercel
-2. **Teste**: Testar o webhook com uma requisição real do Hotmart
-3. **Monitoramento**: Verificar os logs do Vercel para confirmar que o erro foi resolvido
-
-## Prevenção Futura
-
-- Sempre incluir a extensão `.js` em importações de módulos TypeScript quando o projeto for deployado em ambientes que compilam para JavaScript
-- Considerar configurar o TypeScript para exigir extensões explícitas durante o desenvolvimento
-- Testar em ambiente similar ao de produção antes do deploy
-
-## Erro Adicional Identificado: import.meta.env
-
-### Problema
-```
-TypeError: Cannot read properties of undefined (reading 'VITE_SUPABASE_URL')
-at <anonymous> (/vercel/path0/src/lib/supabase.ts:3:37)
-```
-
-### Causa
-O `import.meta.env` não está disponível no contexto de API do Vercel (Node.js), apenas no frontend (Vite).
-
-### Correção Aplicada
-
-**Arquivo: `src/lib/supabase.ts`**
-
-**Antes:**
-```typescript
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-```
-
-**Depois:**
 ```typescript
 // Detectar se estamos em ambiente de API (Vercel) ou frontend (Vite)
 const isApiContext = typeof import.meta === 'undefined' || !import.meta.env
@@ -111,6 +60,51 @@ const supabaseAnonKey = isApiContext
   : import.meta.env.VITE_SUPABASE_ANON_KEY
 ```
 
+### 3. Correção de Configuração Supabase no Webhook
+
+**Problema**: O webhook estava tentando acessar variáveis de ambiente que não estavam configuradas no Vercel, causando "supabaseUrl is required".
+
+**Arquivos modificados**:
+- `api/hotmart/webhook.ts`
+- `api/hotmart/webhook-teste.ts`
+
+**Solução**: Implementação de fallbacks e validação adequada das variáveis de ambiente:
+
+```typescript
+// Configuração de variáveis de ambiente para Vercel
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+  throw new Error('SUPABASE_URL não configurada. Configure NEXT_PUBLIC_SUPABASE_URL ou VITE_SUPABASE_URL no Vercel.');
+}
+
+if (!supabaseServiceKey) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel.');
+}
+```
+
+## Configuração Necessária no Vercel
+
+Para que o webhook funcione corretamente, as seguintes variáveis de ambiente devem estar configuradas no Vercel:
+
+- `NEXT_PUBLIC_SUPABASE_URL` ou `VITE_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `HOTMART_HOTTOK`
+- `SENDGRID_API_KEY`
+
+## Resultado
+
+Após essas correções, o webhook do Hotmart deve funcionar corretamente no ambiente de produção Vercel, resolvendo todos os erros de módulo, variáveis de ambiente e configuração do Supabase.
+
+## Arquivos Modificados
+
+1. `api/hotmart/webhook.ts` - Correção de imports e configuração Supabase
+2. `api/hotmart/webhook-teste.ts` - Correção de configuração Supabase
+3. `src/services/emailService.ts` - Correção de imports
+4. `src/services/hotmartUsersService.ts` - Correção de imports
+5. `src/lib/supabase.ts` - Correção de variáveis de ambiente
+
 ## Status
 
 ✅ **RESOLVIDO** - Correções aplicadas em todos os arquivos afetados
@@ -118,5 +112,5 @@ const supabaseAnonKey = isApiContext
 ---
 
 **Data da correção**: 13/08/2025  
-**Arquivos modificados**: 4  
-**Tipo de erro**: Resolução de módulos e variáveis de ambiente em produção
+**Arquivos modificados**: 5  
+**Tipo de erro**: Resolução de módulos, variáveis de ambiente e configuração Supabase em produção

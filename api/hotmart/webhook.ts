@@ -2,11 +2,8 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { HotmartUsersService } from '../../src/services/hotmartUsersService.js';
-
-// Instância do serviço
-const hotmartUsersService = new HotmartUsersService();
-import { EmailService } from '../../src/services/emailService.js';
+import { hotmartUsersService } from '../../src/services/hotmartUsersService';
+import { EmailService } from '../../src/services/emailService';
 
 // Interfaces para substituir Next.js
 interface NextApiRequest {

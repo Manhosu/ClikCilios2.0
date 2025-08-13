@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../lib/supabase';
 
 // Interfaces atualizadas para o sistema consolidado
 export interface HotmartUser {

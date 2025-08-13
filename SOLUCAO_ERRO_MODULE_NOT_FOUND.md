@@ -35,8 +35,8 @@ import { hotmartUsersService } from '../../src/services/hotmartUsersService';
 import { EmailService } from '../../src/services/emailService';
 
 // DEPOIS
-import { hotmartUsersService } from '../../src/services/hotmartUsersService.js';
-import { EmailService } from '../../src/services/emailService.js';
+import { hotmartUsersService } from '../../src/services/hotmartUsersService';
+import { EmailService } from '../../src/services/emailService';
 ```
 
 ### 2. Correção de Variáveis de Ambiente (TypeError)
@@ -130,7 +130,7 @@ Para melhor otimização, o sistema foi migrado da tabela `pre_users` para a tab
 
 **Implementação Atual:**
 ```typescript
-import { hotmartUsersService } from '../../src/services/hotmartUsersService.js';
+import { hotmartUsersService } from '../../src/services/hotmartUsersService';
 
 // No webhook
 const result = await hotmartUsersService.assignUser(...);

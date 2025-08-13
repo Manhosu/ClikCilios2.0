@@ -1,4 +1,4 @@
-import { EmailTemplatesService } from './emailTemplates.js';
+import { EmailTemplatesService } from './emailTemplates';
 import { createClient } from '@supabase/supabase-js';
 
 // Cliente Supabase para gerenciar usuários

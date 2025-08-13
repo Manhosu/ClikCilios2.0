@@ -2,8 +2,123 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { hotmartUsersService } from '../../src/services/hotmartUsersService';
+// Importações corrigidas para produção
 import { EmailService } from '../../src/services/emailService';
+
+// Cliente Supabase para hotmartUsersService
+const hotmartSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// Implementação inline das funções necessárias do hotmartUsersService
+const hotmartUsersService = {
+  async assignUserToHotmart(buyerEmail: string, buyerName: string, transactionId: string, notificationId: string) {
+    try {
+      const { data: availableUsers, error: fetchError } = await hotmartSupabase
+        .from('users')
+        .select('*')
+        .eq('is_admin', false)
+        .eq('status', 'available')
+        .is('hotmart_buyer_email', null)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (!availableUsers || availableUsers.length === 0) {
+        return {
+          success: false,
+          message: 'Nenhum usuário disponível para atribuição'
+        };
+      }
+
+      const user = availableUsers[0];
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1 ano de acesso
+
+      const { error: updateError } = await hotmartSupabase
+        .from('users')
+        .update({
+          status: 'occupied',
+          hotmart_buyer_email: buyerEmail,
+          hotmart_buyer_name: buyerName,
+          hotmart_transaction_id: transactionId,
+          hotmart_notification_id: notificationId,
+          assigned_at: new Date().toISOString(),
+          expires_at: expiresAt.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return {
+        success: true,
+        user_id: user.id,
+        username: user.username,
+        message: 'Usuário atribuído com sucesso'
+      };
+    } catch (error) {
+      console.error('Erro ao atribuir usuário:', error);
+      throw error;
+    }
+  },
+
+  async releaseUserByTransaction(transactionId: string) {
+    try {
+      const { data: users, error: fetchError } = await hotmartSupabase
+        .from('users')
+        .select('*')
+        .eq('hotmart_transaction_id', transactionId);
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (!users || users.length === 0) {
+        return {
+          success: false,
+          message: 'Usuário não encontrado para esta transação'
+        };
+      }
+
+      const user = users[0];
+
+      const { error: updateError } = await hotmartSupabase
+        .from('users')
+        .update({
+          status: 'available',
+          hotmart_buyer_email: null,
+          hotmart_buyer_name: null,
+          hotmart_transaction_id: null,
+          hotmart_notification_id: null,
+          assigned_at: null,
+          expires_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      return {
+        success: true,
+        user_id: user.id,
+        username: user.username,
+        message: 'Usuário liberado com sucesso'
+      };
+    } catch (error) {
+      console.error('Erro ao liberar usuário:', error);
+      throw error;
+    }
+  }
+};
 
 // Interfaces para substituir Next.js
 interface NextApiRequest {

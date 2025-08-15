@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthContext } from '../hooks/useAuthContext'
+import { useDataContext } from '../contexts/DataContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import Button from '../components/Button'
 
 const ClientesPage: React.FC = () => {
   const navigate = useNavigate()
-  const { user, isLoading: userLoading } = useAuth()
+  const { user, isLoading: userLoading } = useAuthContext()
+  const { incrementClientes, decrementClientes } = useDataContext()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
@@ -108,6 +110,7 @@ const ClientesPage: React.FC = () => {
           data_nascimento: formData.data_nascimento || undefined,
           observacoes: formData.observacoes || undefined
         })
+        incrementClientes()
       }
 
       await carregarClientes()
@@ -122,15 +125,34 @@ const ClientesPage: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir este cliente?')) return
 
     try {
+      console.log('🗑️ Iniciando exclusão do cliente:', id)
+      console.log('👤 Usuário atual:', user)
+      
       const sucesso = await clientesService.excluir(id)
+      
       if (sucesso) {
+        console.log('✅ Cliente excluído com sucesso, recarregando lista...')
+        decrementClientes()
         await carregarClientes()
+        alert('Cliente excluído com sucesso!')
       } else {
-        alert('Cliente não encontrado')
+        console.warn('⚠️ Cliente não foi excluído')
+        alert('Cliente não encontrado ou você não tem permissão para excluí-lo.')
       }
-    } catch (error) {
-      console.error('Erro ao excluir cliente:', error)
-      alert('Erro ao excluir cliente. Tente novamente.')
+    } catch (error: any) {
+      console.error('❌ Erro ao excluir cliente:', error)
+      
+      let mensagem = 'Erro ao excluir cliente. Tente novamente.'
+      
+      if (error.message?.includes('não autenticado')) {
+        mensagem = 'Você precisa estar logado para excluir clientes. Faça login novamente.'
+      } else if (error.code === '42501') {
+        mensagem = 'Você não tem permissão para excluir este cliente.'
+      } else if (error.message?.includes('JWT')) {
+        mensagem = 'Sua sessão expirou. Faça login novamente.'
+      }
+      
+      alert(mensagem)
     }
   }
 
@@ -259,9 +281,15 @@ const ClientesPage: React.FC = () => {
                       ✏️
                     </button>
                     <button
-                      onClick={() => excluirCliente(cliente.id)}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        console.log('🗑️ Botão de exclusão clicado para cliente:', cliente.id)
+                        excluirCliente(cliente.id)
+                      }}
                       className="text-red-500 hover:text-red-700 hover:scale-110 transition-all p-1"
                       title="Excluir"
+                      type="button"
                     >
                       🗑️
                     </button>
@@ -405,4 +433,4 @@ const ClientesPage: React.FC = () => {
   )
 }
 
-export default ClientesPage 
+export default ClientesPage

@@ -1,10 +1,10 @@
-import { useAuth } from './useAuth'
+import { useAuthContext } from './useAuthContext'
 
 /**
  * Hook para verificar permissões de administrador
  */
 export const useAdmin = () => {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading } = useAuthContext()
 
   // Por enquanto, apenas a Carina (email específico) é admin
   // Futuramente pode usar o campo 'tipo' do banco de dados
@@ -15,4 +15,4 @@ export const useAdmin = () => {
     loading: isLoading,
     user
   }
-} 
+}

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthContext } from '../hooks/useAuthContext'
 import { configuracoesService, Configuracoes } from '../services/configuracoesService'
-import { isDevMode } from '../lib/supabase'
+// Removido: import { isDevMode } from '../lib/supabase'
 import Button from '../components/Button'
 
 const ConfiguracoesPage: React.FC = () => {
   const navigate = useNavigate()
-  const { user, logout, isLoading: userLoading } = useAuth()
+  const { user, logout, isLoading: userLoading } = useAuthContext()
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [salvandoPerfil, setSalvandoPerfil] = useState(false)
@@ -61,7 +61,7 @@ const ConfiguracoesPage: React.FC = () => {
         return
       }
 
-      const configSalva = await configuracoesService.salvar(user.id, configuracoes)
+      const configSalva = await configuracoesService.atualizar(user.id, configuracoes)
       setConfiguracoes(configSalva)
 
       alert('✅ Configurações salvas com sucesso!')

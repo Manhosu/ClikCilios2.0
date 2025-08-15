@@ -1,12 +1,12 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOnboarding } from '../hooks/useOnboarding'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthContext } from '../hooks/useAuthContext'
 import { Button } from './Button'
 
 const WelcomeModal: React.FC = () => {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user } = useAuthContext()
   const {
     showWelcome,
     currentStep,
@@ -250,4 +250,4 @@ const WelcomeModal: React.FC = () => {
   )
 }
 
-export default WelcomeModal 
+export default WelcomeModal

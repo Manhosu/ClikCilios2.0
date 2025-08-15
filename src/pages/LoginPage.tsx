@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthContext } from '../hooks/useAuthContext'
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
@@ -9,7 +9,7 @@ const LoginPage = () => {
   const [error, setError] = useState('')
   const [successMessage] = useState('')
   
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { login, isAuthenticated, isLoading: authLoading } = useAuthContext()
   const navigate = useNavigate()
 
   // Redirecionar se já autenticado (mas só depois que terminar o loading)

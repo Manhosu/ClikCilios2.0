@@ -1,78 +1,90 @@
-import { isDevMode } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 
 export interface Configuracoes {
   id?: string
-  tema: 'claro'
-  auto_salvar: boolean
+  user_id: string
+  tema: 'claro' | 'escuro'
+  notificacoes_email: boolean
+  notificacoes_push: boolean
+  idioma: 'pt-BR' | 'en-US' | 'es-ES'
+  timezone: string
+  formato_data: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'
+  formato_hora: '12h' | '24h'
+  moeda: 'BRL' | 'USD' | 'EUR'
+  backup_automatico: boolean
+  backup_frequencia: 'diario' | 'semanal' | 'mensal'
+  created_at?: string
+  updated_at?: string
 }
-
-// Chave para armazenamento local
-const STORAGE_KEY = 'ciliosclick_configuracoes'
 
 // Configurações padrão
-const DEFAULT_CONFIGURACOES: Configuracoes = {
+const configuracoesDefault: Omit<Configuracoes, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
   tema: 'claro',
-  auto_salvar: true
+  notificacoes_email: true,
+  notificacoes_push: true,
+  idioma: 'pt-BR',
+  timezone: 'America/Sao_Paulo',
+  formato_data: 'DD/MM/YYYY',
+  formato_hora: '24h',
+  moeda: 'BRL',
+  backup_automatico: true,
+  backup_frequencia: 'semanal'
 }
 
-// Gerenciamento local de configurações
-class ConfiguracoesLocalStorage {
-  private getConfiguracoes(): Configuracoes {
-    try {
-      const dados = localStorage.getItem(STORAGE_KEY)
-      return dados ? { ...DEFAULT_CONFIGURACOES, ...JSON.parse(dados) } : DEFAULT_CONFIGURACOES
-    } catch (error) {
-      console.warn('Erro ao carregar configurações do localStorage:', error)
-      return DEFAULT_CONFIGURACOES
-    }
-  }
-
-  private salvarConfiguracoes(configuracoes: Configuracoes): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(configuracoes))
-    } catch (error) {
-      console.error('Erro ao salvar configurações no localStorage:', error)
-    }
-  }
-
-  async carregar(): Promise<Configuracoes> {
-    return this.getConfiguracoes()
-  }
-
-  async salvar(configuracoes: Configuracoes): Promise<Configuracoes> {
-    const configComId = {
-      ...configuracoes,
-      id: configuracoes.id || `config_${Date.now()}`
-    }
-    
-    this.salvarConfiguracoes(configComId)
-    return configComId
-  }
-}
-
-// Instância do gerenciador local
-const configuracoesLocal = new ConfiguracoesLocalStorage()
-
-// Serviço principal
 export const configuracoesService = {
-  async carregar(_userId: string): Promise<Configuracoes> {
-    if (isDevMode) {
-      console.info('🔧 Modo desenvolvimento - carregando configurações do localStorage')
-      return await configuracoesLocal.carregar()
+  async obter(userId: string): Promise<Configuracoes> {
+    const { data, error } = await supabase
+      .from('configuracoes_usuario')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`Erro ao carregar configurações: ${error.message}`)
     }
 
-    // TODO: Implementar integração com Supabase quando tabela 'configuracoes_usuario' for criada
-    console.warn('⚠️ Tabela configuracoes_usuario não implementada no Supabase ainda')
-    return DEFAULT_CONFIGURACOES
+    if (!data) {
+      // Criar configurações padrão se não existirem
+      return await this.criar(userId)
+    }
+
+    return data
   },
 
-  async salvar(_userId: string, configuracoes: Configuracoes): Promise<Configuracoes> {
-    if (isDevMode) {
-      console.info('🔧 Modo desenvolvimento - salvando configurações no localStorage')
-      return await configuracoesLocal.salvar(configuracoes)
+  async criar(userId: string): Promise<Configuracoes> {
+    const novasConfiguracoes: Omit<Configuracoes, 'id' | 'created_at' | 'updated_at'> = {
+      ...configuracoesDefault,
+      user_id: userId
     }
 
-    // TODO: Implementar integração com Supabase quando tabela 'configuracoes_usuario' for criada
-    throw new Error('Tabela configuracoes_usuario não implementada no Supabase ainda')
+    const { data, error } = await supabase
+      .from('configuracoes_usuario')
+      .insert(novasConfiguracoes)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Erro ao criar configurações: ${error.message}`)
+    }
+
+    return data
+  },
+
+  async atualizar(userId: string, configuracoes: Partial<Configuracoes>): Promise<Configuracoes> {
+    const { data, error } = await supabase
+      .from('configuracoes_usuario')
+      .update({
+        ...configuracoes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Erro ao atualizar configurações: ${error.message}`)
+    }
+
+    return data
   }
 }

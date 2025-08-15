@@ -1,63 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthContext } from '../hooks/useAuthContext'
 import { useAdmin } from '../hooks/useAdmin'
-import { clientesService } from '../services/clientesService'
-import { imagensService } from '../services/imagensService'
+import { useDataContext } from '../contexts/DataContext'
 
 const Dashboard = () => {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, logout, isLoading: userLoading } = useAuth()
+  const { user, logout, isLoading: userLoading } = useAuthContext()
   const { isAdmin } = useAdmin()
-  const [totalClientes, setTotalClientes] = useState(0)
-  const [totalImagens, setTotalImagens] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const { totalClientes, totalImagens, loading, refreshData } = useDataContext()
 
-  useEffect(() => {
-    // Só carrega quando o user não estiver mais loading e existir
-    if (!userLoading && user?.id) {
-      carregarDadosDashboard()
-    } else if (!userLoading && !user?.id) {
-      // Se não está mais loading mas não tem user, para o loading
-      setLoading(false)
-      setTotalClientes(0)
-      setTotalImagens(0)
-    }
-  }, [user, userLoading])
-
-  // Criar dados de exemplo se não existirem (apenas em desenvolvimento)
-  useEffect(() => {
-    if (!userLoading && user?.id) {
-      // Dados de exemplo removidos para produção
-    }
-  }, [user, userLoading])
-
-  const carregarDadosDashboard = async () => {
-    try {
-      setLoading(true)
-      
-      if (!user?.id) {
-        setTotalClientes(0)
-        setTotalImagens(0)
-        return
-      }
-
-      // Carregar dados em paralelo
-      const [clientes, imagens] = await Promise.all([
-        clientesService.listar(user.id),
-        imagensService.listar(user.id)
-      ])
-
-      setTotalClientes(clientes.length)
-      setTotalImagens(imagens.length)
-    } catch (error) {
-      setTotalClientes(0)
-      setTotalImagens(0)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Dados agora são gerenciados pelo DataContext
 
   const handleLogout = async () => {
     try {
@@ -229,7 +183,7 @@ const Dashboard = () => {
                 </p>
               </div>
               <button
-                onClick={carregarDadosDashboard}
+                onClick={refreshData}
                 className="btn-secondary text-sm"
                 disabled={loading}
               >

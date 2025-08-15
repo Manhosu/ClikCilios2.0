@@ -1,19 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { performanceOptimizer } from '../utils/performanceOptimizer'
+import { networkOptimizer } from '../utils/networkOptimizer'
+import { performanceMonitor } from '../utils/performanceMonitor'
 
-// Variável para controlar log único
-let devModeLogged = false
+// Sistema de cache ultra-avançado para performance máxima
+interface CacheEntry {
+  user: User
+  timestamp: number
+  sessionId: string
+}
 
-// Variável para controlar se foi feito logout manual
-let hasLoggedOut = false
-
-// Variável para evitar múltiplas verificações simultâneas
-let isCheckingAuth = false
-
-// Cache global para sessão
-let sessionCache: { user: User | null; timestamp: number } | null = null
-const CACHE_DURATION = 30000 // 30 segundos
+let globalCache: CacheEntry | null = null
+let isInitializing = false
+let initializationPromise: Promise<void> | null = null
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+const FAST_INIT_TIMEOUT = 4000 // 4 segundos para inicialização mais responsiva
+const FALLBACK_TIMEOUT = 2000 // 2 segundos para fallback rápido
 
 export interface User {
   id: string
@@ -30,20 +34,9 @@ export interface AuthState {
   isAuthenticated: boolean
 }
 
-// Forçar modo produção - sempre usar Supabase
-const isDevMode = false;
-// Usuário mock para desenvolvimento
-const mockUser: User = {
-  id: 'dev-user-123',
-  email: 'dev@ciliosclick.com',
-  nome: 'Usuária Desenvolvimento',
-  tipo: 'profissional',
-  is_admin: true,
-  onboarding_completed: false
-}
-
 /**
  * Hook personalizado para gerenciar autenticação com Supabase
+ * Versão otimizada para evitar carregamento persistente
  */
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
@@ -53,155 +46,263 @@ export const useAuth = () => {
   })
 
   const isMountedRef = useRef(true)
-  
-  // Função para verificar cache
-  const checkCache = useCallback(() => {
-    if (sessionCache && Date.now() - sessionCache.timestamp < CACHE_DURATION) {
-      console.log('📋 Usando cache de sessão válido')
-      setAuthState({
-        user: sessionCache.user,
-        isLoading: false,
-        isAuthenticated: !!sessionCache.user
-      })
-      return true
-    }
-    return false
-  }, [])
+  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     isMountedRef.current = true
     
-    // Verificar cache primeiro
-    if (checkCache()) {
-      return
-    }
-    
-    // Timeout de segurança reduzido para melhor UX
-    const timeoutId = setTimeout(() => {
-      if (isMountedRef.current) {
-        console.log('⏰ Timeout de autenticação atingido, definindo como não autenticado')
+    // Verificação ultra-rápida de cache primeiro
+    const checkCacheFirst = () => {
+      if (globalCache && Date.now() - globalCache.timestamp < CACHE_DURATION) {
+        console.log('⚡ Cache hit - carregamento instantâneo')
         setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false
-        })
-        // Limpar cache em caso de timeout
-        sessionCache = null
-      }
-    }, 5000) // Reduzido para 5 segundos
-    
-    // Se estiver em modo desenvolvimento, usar mock
-    if (isDevMode) {
-      clearTimeout(timeoutId)
-      
-      // Verificar se foi feito logout manual
-      const logoutFlag = localStorage.getItem('ciliosclick_logout')
-      
-      if (hasLoggedOut || logoutFlag === 'true') {
-        console.log('🚪 Modo desenvolvimento: usuário fez logout, mantendo deslogado')
-        if (isMountedRef.current) {
-          const newState = {
-            user: null,
-            isLoading: false,
-            isAuthenticated: false
-          }
-          setAuthState(newState)
-          // Atualizar cache
-          sessionCache = { user: null, timestamp: Date.now() }
-        }
-        return
-      }
-
-      // Log apenas uma vez
-      if (!devModeLogged) {
-        console.log('🔧 Modo desenvolvimento: usando usuário mock')
-        devModeLogged = true
-      }
-      if (isMountedRef.current) {
-        const newState = {
-          user: mockUser,
+          user: globalCache.user,
           isLoading: false,
           isAuthenticated: true
-        }
-        setAuthState(newState)
-        // Atualizar cache
-        sessionCache = { user: mockUser, timestamp: Date.now() }
+        })
+        return true
       }
+      return false
+    }
+    
+    // Se cache válido, usar imediatamente
+    if (checkCacheFirst()) {
       return
     }
-
-    // Verificar sessão atual (modo produção)
-    const getSession = async () => {
-      // Evitar múltiplas verificações simultâneas
-      if (isCheckingAuth) {
-        console.log('⏳ Verificação de autenticação já em andamento, ignorando...')
+    
+    // Sistema de retry inteligente
+    let retryCount = 0
+    const MAX_RETRIES = 3
+    const RETRY_DELAYS = [500, 1000, 2000] // Backoff exponencial mais rápido
+    
+    // Timeout de segurança para inicialização
+    initTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current && isInitializing) {
+        console.log('⏰ Timeout de inicialização atingido, ativando fallback...', {
+          retryCount,
+          cacheStatus: globalCache ? 'disponível' : 'indisponível',
+          timeout: `${FAST_INIT_TIMEOUT}ms`,
+          timestamp: new Date().toISOString()
+        })
+        
+        // Fallback robusto com timeout mais curto
+        const fallbackTimeoutId = setTimeout(() => {
+          console.log('🚨 Fallback timeout atingido, forçando estado offline')
+          
+          if (globalCache?.user) {
+            console.log('📦 Usando cache em modo offline')
+            setAuthState({
+              user: globalCache.user,
+              isLoading: false,
+              isAuthenticated: true
+            })
+          } else {
+            console.log('❌ Modo offline sem cache, redirecionando para login')
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false
+            })
+          }
+        }, FALLBACK_TIMEOUT)
+        
+        // Tentar uma última verificação rápida
+        supabase.auth.getSession()
+          .then(({ data: { session }, error }) => {
+            clearTimeout(fallbackTimeoutId)
+            
+            if (error) {
+              console.error('❌ Erro na verificação de fallback:', error)
+              
+              if (globalCache?.user) {
+                console.log('📦 Usando cache após erro de fallback')
+                setAuthState({
+                  user: globalCache.user,
+                  isLoading: false,
+                  isAuthenticated: true
+                })
+              } else {
+                setAuthState({
+                  user: null,
+                  isLoading: false,
+                  isAuthenticated: false
+                })
+              }
+              return
+            }
+            
+            if (session?.user) {
+              console.log('✅ Sessão recuperada no fallback')
+              loadUserProfile(session.user, true)
+            } else {
+              console.log('❌ Nenhuma sessão no fallback')
+              setAuthState({
+                user: null,
+                isLoading: false,
+                isAuthenticated: false
+              })
+            }
+          })
+          .catch((error) => {
+            clearTimeout(fallbackTimeoutId)
+            console.error('❌ Erro crítico no fallback:', error)
+            
+            if (globalCache?.user) {
+              console.log('📦 Usando cache após erro crítico')
+              setAuthState({
+                user: globalCache.user,
+                isLoading: false,
+                isAuthenticated: true
+              })
+            } else {
+              setAuthState({
+                user: null,
+                isLoading: false,
+                isAuthenticated: false
+              })
+            }
+          })
+        
+        isInitializing = false
+        initializationPromise = null
+      }
+    }, FAST_INIT_TIMEOUT)
+    
+    // Função de inicialização ultra-otimizada com retry inteligente
+    const initializeAuth = async () => {
+      // Evitar múltiplas inicializações simultâneas
+      if (isInitializing) {
+        if (initializationPromise) {
+          await initializationPromise
+        }
         return
       }
       
-      isCheckingAuth = true
+      isInitializing = true
       
-      try {
-        console.log('🔍 Verificando sessão inicial...')
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (!isMountedRef.current) {
-          isCheckingAuth = false
-          return
-        }
-        
-        // Limpar timeout pois a verificação foi concluída
-        clearTimeout(timeoutId)
-        
-        if (error) {
-          console.error('❌ Erro ao obter sessão:', error)
-          const newState = {
-            user: null,
-            isLoading: false,
-            isAuthenticated: false
+      // Função auxiliar para retry com backoff exponencial
+      const attemptAuthWithRetry = async (attempt: number = 0): Promise<void> => {
+        try {
+          console.log(`🔄 Tentativa de autenticação ${attempt + 1}/${MAX_RETRIES + 1}`)
+          
+          const { data: { session }, error } = await networkOptimizer.optimizedRequest(
+            `auth_session_attempt_${attempt}`,
+            () => supabase.auth.getSession(),
+            { priority: 'high', timeout: 5000 + (attempt * 2000) } // Timeout crescente
+          )
+          
+          if (!isMountedRef.current) {
+            return
           }
-          setAuthState(newState)
-          // Atualizar cache
-          sessionCache = { user: null, timestamp: Date.now() }
-          isCheckingAuth = false
-          return
-        }
-
-        if (session?.user) {
-          console.log('✅ Sessão encontrada, carregando perfil...')
-          await loadUserProfile(session.user, timeoutId)
-        } else {
-          console.log('ℹ️ Nenhuma sessão ativa, redirecionando para login')
-          const newState = {
-            user: null,
-            isLoading: false,
-            isAuthenticated: false
+          
+          // Limpar timeout pois a verificação foi concluída
+          if (initTimeoutRef.current) {
+            clearTimeout(initTimeoutRef.current)
+            initTimeoutRef.current = null
           }
-          setAuthState(newState)
-          // Atualizar cache
-          sessionCache = { user: null, timestamp: Date.now() }
-        }
-        
-        isCheckingAuth = false
-      } catch (error) {
-        console.error('❌ Erro na verificação de sessão:', error)
-        clearTimeout(timeoutId)
-        isCheckingAuth = false
-        if (isMountedRef.current) {
-          const newState = {
-            user: null,
-            isLoading: false,
-            isAuthenticated: false
+          
+          if (error) {
+            throw error
           }
-          setAuthState(newState)
-          // Atualizar cache
-          sessionCache = { user: null, timestamp: Date.now() }
+          
+          if (session?.user) {
+            console.log('✅ Sessão encontrada, carregando perfil...')
+            // Iniciar pré-carregamento em paralelo
+            performanceOptimizer.preloadCriticalData(session.user.id)
+            
+            await loadUserProfile(session.user)
+          } else {
+            console.log('ℹ️ Nenhuma sessão ativa')
+            if (isMountedRef.current) {
+              setAuthState({
+                user: null,
+                isLoading: false,
+                isAuthenticated: false
+              })
+            }
+          }
+          
+        } catch (error) {
+          console.error(`❌ Erro na tentativa ${attempt + 1}:`, error)
+          
+          // Se ainda há tentativas disponíveis, fazer retry
+          if (attempt < MAX_RETRIES && isMountedRef.current) {
+            const delay = RETRY_DELAYS[attempt] || 4000
+            console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`)
+            
+            await new Promise(resolve => setTimeout(resolve, delay))
+            
+            if (isMountedRef.current) {
+              retryCount = attempt + 1
+              return attemptAuthWithRetry(attempt + 1)
+            }
+          } else {
+            // Esgotaram as tentativas ou componente desmontado
+            console.error('❌ Todas as tentativas de autenticação falharam')
+            
+            // Tentar modo offline como último recurso
+            if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('network'))) {
+              console.log('🔄 Tentando modo offline...')
+              try {
+                const cachedSession = localStorage.getItem('supabase.auth.token')
+                if (cachedSession) {
+                  console.log('📱 Usando sessão em cache')
+                  if (isMountedRef.current) {
+                    setAuthState({
+                      isLoading: false,
+                      isAuthenticated: true,
+                      user: null // Será carregado depois
+                    })
+                  }
+                  return
+                }
+              } catch (cacheError) {
+                console.error('Erro ao verificar cache:', cacheError)
+              }
+            }
+            
+            if (isMountedRef.current) {
+              setAuthState({
+                user: null,
+                isLoading: false,
+                isAuthenticated: false
+              })
+            }
+          }
         }
       }
+      
+      initializationPromise = performanceOptimizer.measurePerformance(
+          'Auth Initialization',
+          async () => {
+            const authStartTime = performance.now()
+            try {
+              console.log('🚀 Inicialização ultra-otimizada com retry inteligente...')
+              await attemptAuthWithRetry(0)
+            } finally {
+              // Registrar tempo de inicialização
+              const authDuration = performance.now() - authStartTime
+              performanceMonitor.recordOperationTime('Auth Initialization', authDuration)
+              
+              console.log('📊 Estatísticas de autenticação:', {
+                duration: `${authDuration.toFixed(2)}ms`,
+                retries: retryCount,
+                success: authState.isAuthenticated,
+                timestamp: new Date().toISOString()
+              })
+              
+              isInitializing = false
+              initializationPromise = null
+            }
+          }
+        )
+      
+      await initializationPromise
     }
 
-    getSession()
+    initializeAuth()
 
-    // Escutar mudanças de autenticação
+    // Escutar mudanças de autenticação (simplificado)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMountedRef.current) return
@@ -216,62 +317,82 @@ export const useAuth = () => {
         if (event === 'SIGNED_IN' && session?.user) {
           await loadUserProfile(session.user)
         } else if (event === 'SIGNED_OUT') {
-          const newState = {
+          setAuthState({
             user: null,
             isLoading: false,
             isAuthenticated: false
-          }
-          setAuthState(newState)
-          // Limpar cache no logout
-          sessionCache = { user: null, timestamp: Date.now() }
+          })
         }
       }
     )
 
     return () => {
       isMountedRef.current = false
-      clearTimeout(timeoutId)
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current)
+      }
       subscription.unsubscribe()
-      isCheckingAuth = false
+      isInitializing = false
+      initializationPromise = null
     }
-  }, [checkCache]) // Incluir checkCache nas dependências
+  }, []) // Sem dependências para evitar re-execuções desnecessárias
 
-  // Cache para evitar recarregamentos desnecessários
-  const [userCache, setUserCache] = useState<{ [key: string]: User }>({})
-  
-  const loadUserProfile = useCallback(async (authUser: SupabaseUser, timeoutId?: NodeJS.Timeout) => {
-    // Verificar cache primeiro
-    if (userCache[authUser.id]) {
-      console.log('📋 Usando perfil do cache')
-      if (timeoutId) clearTimeout(timeoutId)
-      const newState = {
-        user: userCache[authUser.id],
+  const loadUserProfile = useCallback(async (authUser: SupabaseUser, useCache = true) => {
+    if (!isMountedRef.current) return
+    
+    const profileStartTime = performance.now()
+    
+    console.log('👤 Carregando perfil do usuário:', {
+      userId: authUser.id,
+      email: authUser.email,
+      useCache,
+      timestamp: new Date().toISOString()
+    })
+    
+    // Verificar cache primeiro para performance ultra-rápida
+    if (useCache && globalCache && globalCache.sessionId === authUser.id && 
+        Date.now() - globalCache.timestamp < CACHE_DURATION) {
+      const cacheAge = Date.now() - globalCache.timestamp
+      console.log('📦 Usando dados do cache:', {
+        cacheAge: `${cacheAge}ms`,
+        user: globalCache.user.nome
+      })
+      
+      setAuthState({
+        user: globalCache.user,
         isLoading: false,
         isAuthenticated: true
-      }
-      setAuthState(newState)
-      // Atualizar cache global
-      sessionCache = { user: userCache[authUser.id], timestamp: Date.now() }
+      })
+      
+      const profileDuration = performance.now() - profileStartTime
+      performanceMonitor.recordOperationTime('Profile Load (Cache)', profileDuration)
       return
     }
     
     try {
-      console.log('🔍 Carregando perfil do usuário:', authUser.email)
-      if (timeoutId) clearTimeout(timeoutId)
+      console.log('🔍 Buscando perfil no banco de dados...')
+      console.log('🚀 Carregamento otimizado do perfil:', authUser.email)
       
-      // Tentar carregar da tabela users, mas não falhar se não conseguir
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
+      // Query ultra-otimizada com cache inteligente
+      const userData = await performanceOptimizer.getCachedQuery(
+        `user_profile_${authUser.id}`,
+        async () => {
+          const { data, error } = await supabase
+            .from('users')
+            .select('id, email, nome, is_admin, onboarding_completed')
+            .eq('id', authUser.id)
+            .single()
+          
+          if (error) throw error
+          return data
+        },
+        5 * 60 * 1000 // 5 minutos de cache
+      ).catch(() => null)
 
       let user: User
 
-      if (error || !userData) {
-        console.log('📝 Criando perfil baseado nos dados do Auth (tabela users não disponível)')
-        
-        // Criar usuário baseado nos dados do Auth
+      if (!userData) {
+        console.log('📝 Perfil baseado no Auth (fallback otimizado)')
         user = {
           id: authUser.id,
           email: authUser.email || '',
@@ -280,10 +401,18 @@ export const useAuth = () => {
           is_admin: false,
           onboarding_completed: false
         }
-      } else {
-        console.log('✅ Perfil carregado da tabela users')
         
-        // Usar dados da tabela users
+        const profileDuration = performance.now() - profileStartTime
+        performanceMonitor.recordOperationTime('Profile Load (Fallback)', profileDuration)
+        
+        console.log('📊 Estatísticas de carregamento de perfil (fallback):', {
+          duration: `${profileDuration.toFixed(2)}ms`,
+          fallbackUser: user.nome,
+          timestamp: new Date().toISOString()
+        })
+      } else {
+        console.log('✅ Perfil carregado com sucesso do banco:', userData.nome)
+        console.log('✅ Perfil carregado com otimização ultra-avançada')
         user = {
           id: userData.id,
           email: userData.email,
@@ -292,23 +421,39 @@ export const useAuth = () => {
           is_admin: userData.is_admin,
           onboarding_completed: userData.onboarding_completed
         }
+        
+        const profileDuration = performance.now() - profileStartTime
+        performanceMonitor.recordOperationTime('Profile Load (Database)', profileDuration)
+        
+        console.log('📊 Estatísticas de carregamento de perfil:', {
+          duration: `${profileDuration.toFixed(2)}ms`,
+          user: user.nome,
+          source: 'database',
+          timestamp: new Date().toISOString()
+        })
       }
 
-      // Salvar no cache
-      setUserCache(prev => ({ ...prev, [authUser.id]: user }))
-      
-      const newState = {
+      // Atualizar cache global para próximas consultas
+      globalCache = {
         user,
-        isLoading: false,
-        isAuthenticated: true
+        timestamp: Date.now(),
+        sessionId: authUser.id
       }
-      setAuthState(newState)
-      // Atualizar cache global
-      sessionCache = { user, timestamp: Date.now() }
-    } catch (error) {
-      console.log('⚠️ Erro ao acessar tabela users, usando dados do Auth:', error)
       
-      // Em caso de erro, sempre criar usuário baseado no Auth
+      console.log('💾 Cache atualizado para o usuário:', user.nome)
+
+      if (isMountedRef.current) {
+        setAuthState({
+          user,
+          isLoading: false,
+          isAuthenticated: true
+        })
+      }
+    } catch (error) {
+      console.error('❌ Erro crítico ao carregar perfil:', error)
+      console.log('🔄 Usando fallback de emergência...')
+      console.log('⚠️ Fallback otimizado ativado:', error)
+      
       const user: User = {
         id: authUser.id,
         email: authUser.email || '',
@@ -318,86 +463,135 @@ export const useAuth = () => {
         onboarding_completed: false
       }
 
-      // Salvar no cache mesmo em caso de erro
-      setUserCache(prev => ({ ...prev, [authUser.id]: user }))
-
-      const newState = {
+      // Cache mesmo em fallback para consistência
+      globalCache = {
         user,
-        isLoading: false,
-        isAuthenticated: true
+        timestamp: Date.now(),
+        sessionId: authUser.id
       }
-      setAuthState(newState)
-      // Atualizar cache global
-      sessionCache = { user, timestamp: Date.now() }
-    }
-  }, [userCache])
-
-  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Modo desenvolvimento - simular login
-    if (isDevMode) {
-      console.log('🔧 Modo desenvolvimento: simulando login')
       
-      // Limpar flags de logout
-      hasLoggedOut = false
-      localStorage.removeItem('ciliosclick_logout')
+      const profileDuration = performance.now() - profileStartTime
+      performanceMonitor.recordOperationTime('Profile Load (Critical Error)', profileDuration)
       
-      const user = { ...mockUser, email }
-      const newState = {
-        user,
-        isLoading: false,
-        isAuthenticated: true
-      }
-      setAuthState(newState)
-      // Atualizar cache
-      sessionCache = { user, timestamp: Date.now() }
-      return { success: true }
-    }
-
-    try {
-      console.log('🔐 Iniciando login para:', email)
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      console.log('📊 Estatísticas de carregamento de perfil (erro crítico):', {
+        duration: `${profileDuration.toFixed(2)}ms`,
+        fallbackUser: user.nome,
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        timestamp: new Date().toISOString()
       })
 
-      if (error) {
-        console.error('❌ Erro no signInWithPassword:', error.message)
-        return { success: false, error: error.message }
+      if (isMountedRef.current) {
+        setAuthState({
+          user,
+          isLoading: false,
+          isAuthenticated: true
+        })
       }
+    }
+  }, [])
 
-      if (data.user) {
-        console.log('✅ SignIn bem-sucedido, carregando perfil...')
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const loginStartTime = performance.now()
+    let loginAttempt = 0
+    const MAX_LOGIN_RETRIES = 2
+    
+    console.log('🔐 Iniciando processo de login para:', email)
+    
+    const attemptLogin = async (attempt: number): Promise<{ success: boolean; error?: string }> => {
+      try {
+        console.log(`🔄 Tentativa de login ${attempt + 1}/${MAX_LOGIN_RETRIES + 1}`)
+        setAuthState(prev => ({ ...prev, isLoading: true }))
         
-        try {
-          await loadUserProfile(data.user)
-          console.log('✅ Perfil carregado, login completo!')
-          return { success: true }
-        } catch (profileError) {
-          console.error('❌ Erro ao carregar perfil:', profileError)
-          // Mesmo com erro no perfil, considerar login bem-sucedido
+        // Invalidar cache antes do login para garantir dados frescos
+        if (attempt === 0) {
+          globalCache = null
+          performanceOptimizer.invalidateCache('user_')
+        }
+        
+        const { data, error } = await networkOptimizer.optimizedRequest(
+          `login_${email}_attempt_${attempt}`,
+          () => supabase.auth.signInWithPassword({ email, password }),
+          { priority: 'high', timeout: 5000 + (attempt * 2000) }
+        )
+
+        if (error) {
+          console.error(`❌ Erro no login (tentativa ${attempt + 1}):`, error)
+          
+          // Se ainda há tentativas disponíveis e é um erro de rede/timeout
+          if (attempt < MAX_LOGIN_RETRIES && 
+              (error.message.includes('timeout') || 
+               error.message.includes('network') || 
+               error.message.includes('fetch'))) {
+            
+            const delay = 1000 * (attempt + 1) // 1s, 2s, 3s
+            console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa de login...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+            
+            return attemptLogin(attempt + 1)
+          }
+          
+          setAuthState(prev => ({ ...prev, isLoading: false }))
+          return { success: false, error: error.message }
+        }
+
+        if (data.user) {
+          console.log('✅ Login bem-sucedido, carregando perfil do usuário...')
+          
+          // Forçar carregamento sem cache para login fresco
+          await loadUserProfile(data.user, false)
+          
+          // Registrar tempo de login bem-sucedido
+          const loginDuration = performance.now() - loginStartTime
+          performanceMonitor.recordOperationTime('Login Success', loginDuration)
+          
+          console.log('📊 Estatísticas de login:', {
+            duration: `${loginDuration.toFixed(2)}ms`,
+            attempts: attempt + 1,
+            email: email,
+            timestamp: new Date().toISOString()
+          })
+          
           return { success: true }
         }
+        
+        console.error('❌ Login falhou: usuário não retornado')
+        setAuthState(prev => ({ ...prev, isLoading: false }))
+        return { success: false, error: 'Falha na autenticação' }
+        
+      } catch (error) {
+        console.error(`❌ Erro crítico no login (tentativa ${attempt + 1}):`, error)
+        
+        // Se ainda há tentativas disponíveis
+        if (attempt < MAX_LOGIN_RETRIES) {
+          const delay = 1000 * (attempt + 1)
+          console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa de login...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          
+          return attemptLogin(attempt + 1)
+        }
+        
+        // Registrar tempo de login com erro
+        const loginDuration = performance.now() - loginStartTime
+        performanceMonitor.recordOperationTime('Login Error', loginDuration)
+        
+        console.log('📊 Estatísticas de login (erro):', {
+          duration: `${loginDuration.toFixed(2)}ms`,
+          attempts: attempt + 1,
+          error: error instanceof Error ? error.message : 'Erro desconhecido',
+          timestamp: new Date().toISOString()
+        })
+        
+        // Limpar cache em caso de erro
+        globalCache = null
+        setAuthState(prev => ({ ...prev, isLoading: false }))
+        return { success: false, error: 'Erro interno do servidor' }
       }
-
-      return { success: false, error: 'Erro desconhecido no login' }
-    } catch (error) {
-      console.error('❌ Erro geral no login:', error)
-      return { success: false, error: 'Erro interno no servidor' }
     }
+    
+    return attemptLogin(0)
   }, [loadUserProfile])
 
   const register = async (email: string, password: string, nome: string): Promise<{ success: boolean; error?: string }> => {
-    // Modo desenvolvimento - simular registro
-    if (isDevMode) {
-      console.log('🔧 Modo desenvolvimento: simulando registro')
-      setAuthState({
-        user: { ...mockUser, email, nome },
-        isLoading: false,
-        isAuthenticated: true
-      })
-      return { success: true }
-    }
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -429,62 +623,60 @@ export const useAuth = () => {
   }
 
   const logout = useCallback(async (): Promise<void> => {
-    console.log('🚪 Iniciando logout...')
+    const logoutStartTime = performance.now()
     
-    // Limpar todos os caches
-    setUserCache({})
-    sessionCache = null
-    
-    // Modo desenvolvimento - simular logout
-    if (isDevMode) {
-      console.log('🔧 Modo desenvolvimento: simulando logout')
-      
-      // Definir flags de logout
-      hasLoggedOut = true
-      localStorage.setItem('ciliosclick_logout', 'true')
-      
-      // Limpar localStorage
-      localStorage.removeItem('ciliosclick_user')
-      localStorage.removeItem('ciliosclick_session')
-      
-      const newState = {
-        user: null,
-        isLoading: false,
-        isAuthenticated: false
-      }
-      setAuthState(newState)
-      
-      console.log('✅ Logout completo - estado limpo')
-      return
-    }
-
     try {
-      await supabase.auth.signOut()
-      const newState = {
-        user: null,
-        isLoading: false,
-        isAuthenticated: false
-      }
-      setAuthState(newState)
+      console.log('🚪 Iniciando processo de logout...')
+      setAuthState(prev => ({ ...prev, isLoading: true }))
+      
+      // Limpar cache antes do logout
+      globalCache = null
+      performanceOptimizer.invalidateCache('user_')
+      
+      console.log('🧹 Cache limpo, executando logout no Supabase...')
+      await networkOptimizer.optimizedRequest(
+        'logout',
+        () => supabase.auth.signOut(),
+        { priority: 'high', timeout: 3000 }
+      )
+      
+      const logoutDuration = performance.now() - logoutStartTime
+      performanceMonitor.recordOperationTime('Logout Success', logoutDuration)
+      
       console.log('✅ Logout realizado com sucesso')
-    } catch (error) {
-      console.error('Erro no logout:', error)
-      // Mesmo com erro, limpar estado local
-      const newState = {
+      console.log('📊 Estatísticas de logout:', {
+        duration: `${logoutDuration.toFixed(2)}ms`,
+        timestamp: new Date().toISOString()
+      })
+      
+      setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false
-      }
-      setAuthState(newState)
+      })
+    } catch (error) {
+      const logoutDuration = performance.now() - logoutStartTime
+      performanceMonitor.recordOperationTime('Logout Error', logoutDuration)
+      
+      console.error('❌ Erro no logout:', error)
+      console.log('📊 Estatísticas de logout (erro):', {
+        duration: `${logoutDuration.toFixed(2)}ms`,
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        timestamp: new Date().toISOString()
+      })
+      
+      // Garantir que cache seja limpo mesmo em caso de erro
+      console.log('🧹 Limpando estado local mesmo com erro...')
+      globalCache = null
+      setAuthState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false
+      })
     }
   }, [])
 
   const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
-    // Modo desenvolvimento - simular reset
-    if (isDevMode) {
-      console.log('🔧 Modo desenvolvimento: simulando reset de senha para', email)
-      return { success: true }
-    }
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {

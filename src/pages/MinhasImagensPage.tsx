@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthContext } from '../hooks/useAuthContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import { imagensService, Imagem } from '../services/imagensService'
 import Button from '../components/Button'
 
 const MinhasImagensPage: React.FC = () => {
   const navigate = useNavigate()
-  const { user, isLoading: userLoading } = useAuth()
+  const { user, isLoading: userLoading } = useAuthContext()
   const [imagens, setImagens] = useState<Imagem[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)

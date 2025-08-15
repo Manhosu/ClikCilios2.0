@@ -20,14 +20,15 @@ const defaultAuthContext: AuthContextType = {
   resetPassword: async () => ({ success: false, error: 'Context não inicializado' })
 }
 
-const AuthContext = createContext<AuthContextType>(defaultAuthContext)
+// Criar o contexto
+export const AuthContext = createContext<AuthContextType>(defaultAuthContext)
 
 interface AuthProviderProps {
   children: ReactNode
 }
 
-// Componente principal - SOMENTE componente neste arquivo
-function AuthProvider({ children }: AuthProviderProps) {
+// Componente AuthProvider
+const AuthProvider = ({ children }: AuthProviderProps) => {
   const auth = useAuth()
 
   return (
@@ -37,8 +38,5 @@ function AuthProvider({ children }: AuthProviderProps) {
   )
 }
 
-// Exportar AuthContext para usar em outros arquivos
-export { AuthContext }
-
-// Exportação padrão SOMENTE do componente
+// Exportação padrão do componente
 export default AuthProvider

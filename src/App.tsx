@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import AuthProvider from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { DataProvider } from './contexts/DataContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import WelcomeModal from './components/WelcomeModal'
 
@@ -24,7 +25,8 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <div className="App">
+        <DataProvider>
+          <div className="App">
           <Routes>
             {/* Rota pública */}
             <Route path="/login" element={<LoginPage />} />
@@ -99,7 +101,8 @@ function App() {
           
           {/* Toast notifications */}
           <Toaster position="top-right" richColors />
-        </div>
+          </div>
+        </DataProvider>
       </AuthProvider>
     </ThemeProvider>
   )

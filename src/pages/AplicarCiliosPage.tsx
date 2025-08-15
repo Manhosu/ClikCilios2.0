@@ -1,10 +1,14 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
+import { imagensService } from '../services/imagensService'
+import { configuracoesService } from '../services/configuracoesService'
+import { useAuthContext } from '../hooks/useAuthContext'
 import Button from '../components/Button'
 
 const AplicarCiliosPage = () => {
   const navigate = useNavigate()
+  const { user } = useAuthContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagemOriginal, setImagemOriginal] = useState<string | null>(null)
   const [arquivoOriginal, setArquivoOriginal] = useState<File | null>(null)
@@ -13,9 +17,47 @@ const AplicarCiliosPage = () => {
   const [progresso, setProgresso] = useState(0)
   const [resultado, setResultado] = useState<ProcessamentoIA | null>(null)
   const [erro, setErro] = useState<string>('')
+  const [autoSalvar, setAutoSalvar] = useState(true)
 
   
   const estilosCilios = getEstilosCilios()
+
+  // Carregar configurações do usuário
+  useEffect(() => {
+    const carregarConfiguracoes = async () => {
+      if (user?.id) {
+        try {
+          const config = await configuracoesService.carregar(user.id)
+          setAutoSalvar(config.auto_salvar)
+        } catch (error) {
+          console.error('Erro ao carregar configurações:', error)
+        }
+      }
+    }
+    carregarConfiguracoes()
+  }, [user?.id])
+
+  // Função para salvar imagem automaticamente
+  const salvarImagemAutomaticamente = async (resultado: ProcessamentoIA) => {
+    if (!autoSalvar || !user?.id || !resultado.imagemProcessada) return
+
+    try {
+      const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
+      const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}`
+      
+      await imagensService.criar(user.id, {
+        nome_arquivo: `${nomeArquivo}.jpg`,
+        url_original: imagemOriginal || '',
+        url_processada: resultado.imagemProcessada,
+        estilo_aplicado: estilo?.nome || estiloSelecionado,
+        observacoes: 'Imagem salva automaticamente após processamento'
+      })
+      
+      console.log('✅ Imagem salva automaticamente')
+    } catch (error) {
+      console.error('Erro ao salvar imagem automaticamente:', error)
+    }
+  }
 
   // Logs de debug removidos para produção
 
@@ -88,16 +130,20 @@ const AplicarCiliosPage = () => {
       const blob = await response.blob()
 
       const reader = new FileReader()
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64data = reader.result as string
-        setResultado({
+        const resultadoProcessamento = {
           imagemOriginal: imagemOriginal!, // se estiver garantido
           estiloSelecionado,
           imagemProcessada: base64data,
-          status: 'concluido',
+          status: 'concluido' as const,
           // tempoProcessamento: undefined, // pode omitir
           // metadata: undefined,           // pode omitir
-        })
+        }
+        setResultado(resultadoProcessamento)
+        
+        // Salvar automaticamente se configurado
+        await salvarImagemAutomaticamente(resultadoProcessamento)
       }
       reader.readAsDataURL(blob)
 

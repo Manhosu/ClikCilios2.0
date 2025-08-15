@@ -11,26 +11,17 @@ const supabaseAnonKey = isApiContext
   ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
   : import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Modo desenvolvimento - usar credenciais demo se não configuradas
-const isDevelopment = !supabaseUrl || !supabaseAnonKey
-
-if (isDevelopment) {
-  // Log de desenvolvimento apenas uma vez
-  if (!(globalThis as any).__SUPABASE_DEV_LOGGED__) {
-    console.info('🔧 Modo desenvolvimento ativo - Configure .env.local para produção')
-    ;(globalThis as any).__SUPABASE_DEV_LOGGED__ = true
-  }
-} else {
-  console.info('✅ Supabase configurado corretamente!')
+// Sistema sempre em produção - verificar se credenciais estão configuradas
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Credenciais do Supabase não configuradas. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env')
 }
 
-// Credenciais para desenvolvimento (não funcionais, apenas para evitar erros)
-const devUrl = 'https://demo.supabase.co'
-const devKey = 'demo-key'
+console.info('✅ Supabase configurado corretamente!')
+console.info('URL:', supabaseUrl)
 
 export const supabase = createClient(
-  supabaseUrl || devUrl, 
-  supabaseAnonKey || devKey, 
+  supabaseUrl, 
+  supabaseAnonKey, 
   {
     auth: {
       autoRefreshToken: true,
@@ -40,8 +31,7 @@ export const supabase = createClient(
   }
 )
 
-// Mock para desenvolvimento
-export const isDevMode = isDevelopment
+export const isDevMode = false
 
 // Tipos customizados para o banco de dados
 export interface Database {

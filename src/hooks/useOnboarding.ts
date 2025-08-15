@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from './useAuth'
+import { useAuthContext } from './useAuthContext'
 import { supabase } from '../lib/supabase'
 
 interface OnboardingStep {
@@ -23,7 +23,7 @@ interface OnboardingState {
  * Hook para gerenciar o onboarding/boas-vindas da usuária
  */
 export const useOnboarding = () => {
-  const { user } = useAuth()
+  const { user } = useAuthContext()
   const [onboarding, setOnboarding] = useState<OnboardingState>({
     isFirstLogin: false,
     showWelcome: false,
@@ -79,33 +79,7 @@ export const useOnboarding = () => {
       }
 
       try {
-        // Modo desenvolvimento - verificar se já viu o onboarding antes
-        if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-          // Usar localStorage para lembrar se já fez onboarding em modo dev
-          const hasSeenOnboarding = localStorage.getItem('ciliosclick_onboarding_completed')
-          
-          if (!hasSeenOnboarding) {
-            console.log('🔧 Modo desenvolvimento: primeiro acesso - mostrando onboarding')
-          setOnboarding({
-            isFirstLogin: true,
-            showWelcome: true,
-            currentStep: 0,
-            steps: defaultSteps,
-            completed: false
-          })
-          } else {
-            console.log('🔧 Modo desenvolvimento: onboarding já visto')
-            setOnboarding({
-              isFirstLogin: false,
-              showWelcome: false,
-              currentStep: 0,
-              steps: defaultSteps,
-              completed: true
-            })
-          }
-          setLoading(false)
-          return
-        }
+
 
         // Verificar na tabela users se já fez onboarding
         const { data: userData, error } = await supabase
@@ -193,17 +167,7 @@ export const useOnboarding = () => {
     if (!user) return
 
     try {
-      // Modo desenvolvimento - salvar no localStorage e fechar modal
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('🔧 Modo desenvolvimento: onboarding pulado')
-        localStorage.setItem('ciliosclick_onboarding_completed', 'true')
-        setOnboarding(prev => ({
-          ...prev,
-          showWelcome: false,
-          completed: true
-        }))
-        return
-      }
+
 
       await supabase
         .from('users')
@@ -231,18 +195,7 @@ export const useOnboarding = () => {
     if (!user) return
 
     try {
-      // Modo desenvolvimento - salvar no localStorage e fechar modal
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('🔧 Modo desenvolvimento: onboarding completado')
-        localStorage.setItem('ciliosclick_onboarding_completed', 'true')
-        setOnboarding(prev => ({
-          ...prev,
-          showWelcome: false,
-          completed: true,
-          steps: prev.steps.map(step => ({ ...step, completed: true }))
-        }))
-        return
-      }
+
 
       await supabase
         .from('users')
@@ -284,11 +237,25 @@ export const useOnboarding = () => {
     }))
   }
 
-  // Resetar onboarding (limpar localStorage em modo dev)
-  const resetOnboarding = () => {
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-      localStorage.removeItem('ciliosclick_onboarding_completed')
-      console.log('🔧 Onboarding resetado - recarregue a página para ver novamente')
+  // Resetar onboarding
+  const resetOnboarding = async () => {
+    if (!user) return
+
+    try {
+      await supabase
+        .from('users')
+        .update({ onboarding_completed: false })
+        .eq('id', user.id)
+
+      setOnboarding({
+        isFirstLogin: true,
+        showWelcome: true,
+        currentStep: 0,
+        steps: defaultSteps,
+        completed: false
+      })
+    } catch (error) {
+      console.error('Erro ao resetar onboarding:', error)
     }
   }
 

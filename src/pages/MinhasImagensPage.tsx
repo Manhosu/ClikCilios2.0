@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { clientesService, Cliente } from '../services/clientesService'
-import { imagensService, Imagem } from '../services/imagensService'
+import { imagensService, ImagemCliente } from '../services/imagensService'
 import Button from '../components/Button'
 
 const MinhasImagensPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, isLoading: userLoading } = useAuthContext()
-  const [imagens, setImagens] = useState<Imagem[]>([])
+  const [imagens, setImagens] = useState<ImagemCliente[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroEstilo, setFiltroEstilo] = useState('')
   const [filtroCliente, setFiltroCliente] = useState('')
-  const [imagemSelecionada, setImagemSelecionada] = useState<Imagem | null>(null)
+  const [imagemSelecionada, setImagemSelecionada] = useState<ImagemCliente | null>(null)
   const [modalAberto, setModalAberto] = useState(false)
 
   const estilos = [
@@ -96,8 +96,8 @@ const MinhasImagensPage: React.FC = () => {
       console.log('📊 Dados carregados:', {
         totalImagens: imagensData.length,
         totalClientes: clientesData.length,
-        processadas: imagensData.filter(img => img.url_processada).length,
-        estilosUnicos: new Set(imagensData.map(img => img.estilo_aplicado)).size
+        processadas: imagensData.filter(img => img.tipo === 'depois').length,
+        tiposUnicos: new Set(imagensData.map(img => img.tipo)).size
       })
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
@@ -130,8 +130,8 @@ const MinhasImagensPage: React.FC = () => {
 
 
   const imagensFiltradas = imagens.filter(img => {
-    const matchEstilo = !filtroEstilo || img.estilo_aplicado === filtroEstilo
-    const matchCliente = !filtroCliente || img.cliente_nome?.toLowerCase().includes(filtroCliente.toLowerCase())
+    const matchEstilo = !filtroEstilo || img.tipo === filtroEstilo
+    const matchCliente = !filtroCliente || img.cliente_id?.toLowerCase().includes(filtroCliente.toLowerCase())
     return matchEstilo && matchCliente
   })
 
@@ -252,13 +252,13 @@ const MinhasImagensPage: React.FC = () => {
           </div>
           <div className="card-interactive text-center group">
             <div className="text-3xl font-bold text-green-600 group-hover:scale-110 transition-transform">
-              {imagens.filter(img => img.url_processada).length}
+              {imagens.filter(img => img.tipo === 'depois').length}
             </div>
             <div className="text-sm text-gray-600 mt-1">✅ Processadas</div>
           </div>
           <div className="card-interactive text-center group">
             <div className="text-3xl font-bold text-secondary-600 group-hover:scale-110 transition-transform">
-              {new Set(imagens.map(img => img.estilo_aplicado)).size}
+              {new Set(imagens.map(img => img.tipo)).size}
             </div>
             <div className="text-sm text-gray-600 mt-1">🎨 Estilos Únicos</div>
           </div>
@@ -320,31 +320,31 @@ const MinhasImagensPage: React.FC = () => {
               >
                 <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl relative overflow-hidden mb-4">
                   <img
-                    src={imagem.url_processada || imagem.url_original}
-                    alt={imagem.nome_arquivo}
+                    src={imagem.url}
+                    alt={imagem.nome}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                  {imagem.url_processada && (
+                  {imagem.tipo && (
                     <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-xl text-xs font-medium shadow-lg">
-                      ✅ Processada
+                      {imagem.tipo}
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </div>
                 <div className="space-y-2">
                   <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
-                    {imagem.nome_arquivo}
+                    {imagem.nome}
                   </h3>
-                  {imagem.estilo_aplicado && (
+                  {imagem.descricao && (
                     <p className="text-sm text-primary-600 flex items-center">
                       <span className="mr-1">💄</span>
-                      {imagem.estilo_aplicado}
+                      {imagem.descricao}
                     </p>
                   )}
-                  {imagem.cliente_nome && (
+                  {imagem.cliente_id && (
                     <p className="text-sm text-gray-600 flex items-center">
                       <span className="text-secondary-500 mr-1">👤</span>
-                      {imagem.cliente_nome}
+                      {imagem.cliente_id}
                     </p>
                   )}
                   <p className="text-xs text-gray-500 flex items-center">
@@ -376,8 +376,8 @@ const MinhasImagensPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl overflow-hidden">
                   <img
-                    src={imagemSelecionada.url_processada || imagemSelecionada.url_original}
-                    alt={imagemSelecionada.nome_arquivo}
+                    src={imagemSelecionada.url}
+                    alt={imagemSelecionada.nome}
                     className="w-full h-full object-contain"
                   />
                 </div>
@@ -386,18 +386,18 @@ const MinhasImagensPage: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <label className="text-sm font-medium text-gray-700">📁 Nome do Arquivo</label>
-                      <p className="text-gray-900">{imagemSelecionada.nome_arquivo}</p>
+                      <p className="text-gray-900">{imagemSelecionada.nome}</p>
                     </div>
-                    {imagemSelecionada.estilo_aplicado && (
+                    {imagemSelecionada.tipo && (
                       <div>
-                        <label className="text-sm font-medium text-gray-700">💄 Estilo Aplicado</label>
-                        <p className="text-primary-600 font-medium">{imagemSelecionada.estilo_aplicado}</p>
+                        <label className="text-sm font-medium text-gray-700">💄 Tipo</label>
+                        <p className="text-primary-600 font-medium">{imagemSelecionada.tipo}</p>
                       </div>
                     )}
-                    {imagemSelecionada.cliente_nome && (
+                    {imagemSelecionada.cliente_id && (
                       <div>
                         <label className="text-sm font-medium text-gray-700">👤 Cliente</label>
-                        <p className="text-gray-900">{imagemSelecionada.cliente_nome}</p>
+                        <p className="text-gray-900">{imagemSelecionada.cliente_id}</p>
                       </div>
                     )}
                   </div>
@@ -408,18 +408,18 @@ const MinhasImagensPage: React.FC = () => {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700">🔄 Status</label>
-                      <p className={`font-medium ${imagemSelecionada.url_processada ? 'text-green-600' : 'text-orange-600'}`}>
-                        {imagemSelecionada.url_processada ? '✅ Processada' : '⏳ Original'}
+                      <p className={`font-medium ${imagemSelecionada.tipo === 'depois' ? 'text-green-600' : 'text-orange-600'}`}>
+                        {imagemSelecionada.tipo === 'depois' ? '✅ Processada' : '⏳ Original'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {imagemSelecionada.observacoes && (
+                {imagemSelecionada.descricao && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">📝 Observações</label>
+                    <label className="text-sm font-medium text-gray-700">📝 Descrição</label>
                     <p className="text-gray-900 bg-gray-50 p-3 rounded-xl mt-1">
-                      {imagemSelecionada.observacoes}
+                      {imagemSelecionada.descricao}
                     </p>
                   </div>
                 )}

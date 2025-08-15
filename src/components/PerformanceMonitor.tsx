@@ -21,8 +21,8 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
       setMetrics(newMetrics)
     })
 
-    // Coletar métricas iniciais
-    performanceMonitor.collectMetrics()
+    // Forçar coleta de métricas iniciais
+    performanceMonitor.forceCollection()
 
     return unsubscribe
   }, [isVisible])
@@ -49,7 +49,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center space-x-2">
-          <div className={`w-2 h-2 rounded-full ${metrics.alerts.length > 0 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+          <div className={`w-2 h-2 rounded-full bg-green-500`} />
           {isExpanded && <span>Performance</span>}
         </div>
         {isExpanded && (
@@ -92,7 +92,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
               </div>
               <div className="flex justify-between">
                 <span>Entries:</span>
-                <span className="text-gray-300">{metrics.cacheSize}</span>
+                <span className="text-gray-300">N/A</span>
               </div>
             </div>
           </div>
@@ -116,19 +116,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
             </div>
           </div>
 
-          {/* Alertas */}
-          {metrics.alerts.length > 0 && (
-            <div>
-              <div className="font-semibold text-red-400 mb-1">Alerts</div>
-              <div className="space-y-1 max-h-20 overflow-y-auto">
-                {metrics.alerts.slice(0, 3).map((alert, index) => (
-                  <div key={index} className="text-red-300 text-xs">
-                    {alert.message}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Alertas removidos - não disponível na interface PerformanceMetrics */}
 
           {/* Timestamp */}
           <div className="text-gray-500 text-xs pt-1 border-t border-gray-600">

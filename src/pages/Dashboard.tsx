@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { useAdmin } from '../hooks/useAdmin'
@@ -7,7 +7,7 @@ import { useDataContext } from '../contexts/DataContext'
 const Dashboard = () => {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, logout, isLoading: userLoading } = useAuthContext()
+  const { user, logout } = useAuthContext()
   const { isAdmin } = useAdmin()
   const { totalClientes, totalImagens, loading, refreshData } = useDataContext()
 

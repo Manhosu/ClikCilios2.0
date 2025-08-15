@@ -27,8 +27,8 @@ const AplicarCiliosPage = () => {
     const carregarConfiguracoes = async () => {
       if (user?.id) {
         try {
-          const config = await configuracoesService.carregar(user.id)
-          setAutoSalvar(config.auto_salvar)
+          const config = await configuracoesService.obter(user.id)
+          setAutoSalvar(config.backup_automatico)
         } catch (error) {
           console.error('Erro ao carregar configurações:', error)
         }
@@ -45,12 +45,13 @@ const AplicarCiliosPage = () => {
       const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
       const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}`
       
-      await imagensService.criar(user.id, {
-        nome_arquivo: `${nomeArquivo}.jpg`,
-        url_original: imagemOriginal || '',
-        url_processada: resultado.imagemProcessada,
-        estilo_aplicado: estilo?.nome || estiloSelecionado,
-        observacoes: 'Imagem salva automaticamente após processamento'
+      await imagensService.criar({
+        cliente_id: '',
+        user_id: user.id,
+        nome: `${nomeArquivo}.jpg`,
+        url: resultado.imagemProcessada,
+        tipo: 'depois' as 'antes' | 'depois' | 'processo',
+        descricao: 'Imagem salva automaticamente após processamento'
       })
       
       console.log('✅ Imagem salva automaticamente')

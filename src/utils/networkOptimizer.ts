@@ -1,5 +1,4 @@
 // Sistema de otimização de rede ultra-avançado
-import { supabase } from '../lib/supabase'
 
 // Configurações de otimização de rede
 const NETWORK_CONFIG = {
@@ -103,7 +102,7 @@ export class NetworkOptimizer {
     timeout: number,
     priority: 'high' | 'normal' | 'low'
   ): Promise<T> {
-    let lastError: Error
+    let lastError: Error = new Error('Unknown error')
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {

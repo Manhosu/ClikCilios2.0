@@ -157,23 +157,22 @@ export class LazyLoader {
     const routeMap: Record<string, Array<{ key: string; importFn: () => Promise<{ default: ComponentType<any> }> }>> = {
       '/': [
         { key: 'Dashboard', importFn: () => import('../pages/Dashboard') },
-        { key: 'ServiceCard', importFn: () => import('../components/ServiceCard') }
-      ],
-      '/agendamentos': [
-        { key: 'Agendamentos', importFn: () => import('../pages/Agendamentos') },
-        { key: 'Calendar', importFn: () => import('../components/Calendar') }
-      ],
-      '/servicos': [
-        { key: 'Servicos', importFn: () => import('../pages/Servicos') },
-        { key: 'ServiceForm', importFn: () => import('../components/ServiceForm') }
+        // { key: 'ServiceCard', importFn: () => import('../components/ServiceCard') }
       ],
       '/clientes': [
-        { key: 'Clientes', importFn: () => import('../pages/Clientes') },
-        { key: 'ClientForm', importFn: () => import('../components/ClientForm') }
+        { key: 'ClientesPage', importFn: () => import('../pages/ClientesPage') }
       ],
-      '/financeiro': [
-        { key: 'Financeiro', importFn: () => import('../pages/Financeiro') },
-        { key: 'FinanceChart', importFn: () => import('../components/FinanceChart') }
+      '/configuracoes': [
+        { key: 'ConfiguracoesPage', importFn: () => import('../pages/ConfiguracoesPage') }
+      ],
+      '/parcerias': [
+        { key: 'ParceriasPage', importFn: () => import('../pages/ParceriasPage') }
+      ],
+      '/minhas-imagens': [
+        { key: 'MinhasImagensPage', importFn: () => import('../pages/MinhasImagensPage') }
+      ],
+      '/aplicar-cilios': [
+        { key: 'AplicarCiliosPage', importFn: () => import('../pages/AplicarCiliosPage') }
       ]
     }
 

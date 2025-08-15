@@ -20,7 +20,6 @@ const CACHE_TTL = {
 // Sistema de pré-carregamento inteligente
 export class PerformanceOptimizer {
   private static instance: PerformanceOptimizer
-  private preloadQueue: Set<string> = new Set()
   private isPreloading = false
 
   static getInstance(): PerformanceOptimizer {
@@ -62,14 +61,20 @@ export class PerformanceOptimizer {
       // Pré-carregar dados do usuário
       await this.getCachedQuery(
         `user_${userId}`,
-        () => supabase.from('users').select('*').eq('id', userId).single(),
+        async () => {
+          const { data, error } = await supabase.from('users').select('*').eq('id', userId).single()
+          return { data, error }
+        },
         CACHE_TTL.user
       )
 
       // Pré-carregar configurações do sistema
       await this.getCachedQuery(
         'system_config',
-        () => supabase.from('configuracoes').select('*'),
+        async () => {
+          const { data, error } = await supabase.from('configuracoes').select('*')
+          return { data, error }
+        },
         CACHE_TTL.static
       )
 

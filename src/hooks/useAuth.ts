@@ -492,7 +492,6 @@ export const useAuth = () => {
 
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const loginStartTime = performance.now()
-    let loginAttempt = 0
     const MAX_LOGIN_RETRIES = 2
     
     console.log('🔐 Iniciando processo de login para:', email)

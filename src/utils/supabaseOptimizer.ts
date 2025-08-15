@@ -43,8 +43,9 @@ export class SupabaseOptimizer {
     // Verificar cache primeiro
     const cachedResult = await performanceOptimizer.getCachedQuery(
       cacheKey,
-      config.cacheDuration || 300000 // 5 minutos padrão
-    )
+      async () => null,
+      0
+    ).catch(() => null)
 
     if (cachedResult) {
       const stats: QueryStats = {
@@ -64,11 +65,11 @@ export class SupabaseOptimizer {
 
       // Aplicar seleção otimizada
       if (config.select) {
-        query = query.select(config.select)
+        query = (query as any).select(config.select)
       } else {
         // Seleção inteligente baseada no uso histórico
         const optimizedSelect = await this.getOptimizedSelect(config.table)
-        query = query.select(optimizedSelect)
+        query = (query as any).select(optimizedSelect)
       }
 
       // Aplicar filtros com otimização de índices
@@ -78,25 +79,27 @@ export class SupabaseOptimizer {
 
       // Aplicar ordenação
       if (config.orderBy) {
-        query = query.order(config.orderBy.column, { ascending: config.orderBy.ascending ?? true })
+        query = (query as any).order(config.orderBy.column, { ascending: config.orderBy.ascending ?? true })
       }
 
       // Aplicar paginação
       if (config.limit) {
-        query = query.limit(config.limit)
+        query = (query as any).limit(config.limit)
       }
       if (config.offset) {
-        query = query.range(config.offset, config.offset + (config.limit || 10) - 1)
+        query = (query as any).range(config.offset, config.offset + (config.limit || 10) - 1)
       }
 
       // Executar query com timeout baseado na prioridade
       const timeout = this.getTimeoutForPriority(config.priority || 'medium')
-      const { data, error } = await Promise.race([
+      const result = await Promise.race([
         query,
         new Promise<{ data: null; error: string }>((_, reject) => 
           setTimeout(() => reject(new Error('Query timeout')), timeout)
         )
       ])
+      
+      const { data, error } = result as any
 
       const executionTime = performance.now() - startTime
       
@@ -121,9 +124,9 @@ export class SupabaseOptimizer {
 
       // Cachear resultado se bem-sucedido
       if (data && !error) {
-        await performanceOptimizer.setCachedQuery(
+        await performanceOptimizer.getCachedQuery(
           cacheKey,
-          data,
+          () => Promise.resolve(data),
           config.cacheDuration || 300000
         )
       }

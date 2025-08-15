@@ -1,8 +1,8 @@
 // Sistema de monitoramento de performance em tempo real
 import React from 'react'
-import { networkOptimizer } from './networkOptimizer'
+// import { networkOptimizer } from './networkOptimizer'
 
-interface PerformanceMetrics {
+export interface PerformanceMetrics {
   authInitTime: number
   loginTime: number
   cacheHitRate: number
@@ -60,8 +60,6 @@ export class PerformanceMonitor {
   // Coletar métricas atuais
   private async collectMetrics(): Promise<void> {
     try {
-      const networkStatus = networkOptimizer.getNetworkStatus()
-      
       const metrics: PerformanceMetrics = {
         authInitTime: this.getAverageAuthTime(),
         loginTime: this.getAverageLoginTime(),

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { configuracoesService, Configuracoes } from '../services/configuracoesService'
-// Removido: import { isDevMode } from '../lib/supabase'
 import Button from '../components/Button'
+
+// Definir isDevMode para desenvolvimento
+const isDevMode = import.meta.env.DEV
 
 const ConfiguracoesPage: React.FC = () => {
   const navigate = useNavigate()
@@ -13,8 +15,17 @@ const ConfiguracoesPage: React.FC = () => {
   const [salvandoPerfil, setSalvandoPerfil] = useState(false)
   const [editandoPerfil, setEditandoPerfil] = useState(false)
   const [configuracoes, setConfiguracoes] = useState<Configuracoes>({
+    user_id: '',
     tema: 'claro',
-    auto_salvar: true
+    notificacoes_email: true,
+    notificacoes_push: true,
+    idioma: 'pt-BR',
+    timezone: 'America/Sao_Paulo',
+    formato_data: 'DD/MM/YYYY',
+    formato_hora: '24h',
+    moeda: 'BRL',
+    backup_automatico: true,
+    backup_frequencia: 'semanal'
   })
   const [dadosPerfil, setDadosPerfil] = useState({
     nome: '',
@@ -43,7 +54,7 @@ const ConfiguracoesPage: React.FC = () => {
         return
       }
 
-      const configuracoes = await configuracoesService.carregar(user.id)
+      const configuracoes = await configuracoesService.obter(user.id)
       setConfiguracoes(configuracoes)
     } catch (error) {
       // Erro ao carregar configurações - log removido para produção
@@ -218,10 +229,10 @@ const ConfiguracoesPage: React.FC = () => {
                   <label className="relative inline-flex items-center cursor-pointer ml-6">
                     <input
                       type="checkbox"
-                      checked={configuracoes.auto_salvar}
+                      checked={configuracoes.backup_automatico}
                       onChange={(e) => setConfiguracoes(prev => ({ 
                         ...prev, 
-                        auto_salvar: e.target.checked 
+                        backup_automatico: e.target.checked 
                       }))}
                       className="sr-only peer"
                     />

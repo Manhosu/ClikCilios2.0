@@ -195,8 +195,8 @@ const uploadHandler = async (req: NextApiRequest, res: NextApiResponse) => {
     // Parse do formulário
     const [fields, files] = await form.parse(req);
     
-    // Verificar se há arquivos
-    const uploadedFiles = files.images;
+    // Verificar se há arquivos (aceitar tanto 'image' quanto 'images')
+    const uploadedFiles = files.image || files.images;
     if (!uploadedFiles) {
       throw new ValidationError('Nenhum arquivo fornecido');
     }
@@ -267,20 +267,39 @@ const uploadHandler = async (req: NextApiRequest, res: NextApiResponse) => {
     const totalCount = uploadResults.length;
 
     // Resposta de sucesso
-    res.status(200).json({
-      success: successCount > 0,
-      message: successCount === totalCount 
-        ? `${successCount} imagem(ns) enviada(s) com sucesso`
-        : `${successCount} de ${totalCount} imagem(ns) enviada(s) com sucesso`,
-      data: {
-        results: uploadResults,
-        summary: {
-          total: totalCount,
-          success: successCount,
-          failed: totalCount - successCount
+    if (totalCount === 1 && successCount === 1) {
+      // Para um único arquivo, retornar o objeto diretamente
+      const result = uploadResults[0];
+      res.status(200).json({
+        success: true,
+        message: 'Imagem enviada com sucesso',
+        data: {
+          id: result.id,
+          filename: result.filename,
+          original_name: result.originalFilename,
+          file_size: result.size,
+          mime_type: result.mimeType,
+          created_at: result.uploadedAt,
+          updated_at: result.uploadedAt
         }
-      }
-    });
+      });
+    } else {
+      // Para múltiplos arquivos, retornar array
+      res.status(200).json({
+        success: successCount > 0,
+        message: successCount === totalCount 
+          ? `${successCount} imagem(ns) enviada(s) com sucesso`
+          : `${successCount} de ${totalCount} imagem(ns) enviada(s) com sucesso`,
+        data: {
+          results: uploadResults,
+          summary: {
+            total: totalCount,
+            success: successCount,
+            failed: totalCount - successCount
+          }
+        }
+      });
+    }
 
   } catch (error) {
     return handleApiError(res, error);

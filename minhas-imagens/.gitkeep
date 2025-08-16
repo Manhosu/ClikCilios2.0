@@ -1,0 +1,3 @@
+# Este arquivo garante que o diretório minhas-imagens seja versionado no Git
+# Diretório destinado ao armazenamento de imagens dos usuários
+# Estrutura: /minhas-imagens/{user_id}/{image_files}

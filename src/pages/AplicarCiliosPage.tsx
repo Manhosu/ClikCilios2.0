@@ -4,7 +4,9 @@ import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '
 import { imagensService } from '../services/imagensService'
 import { configuracoesService } from '../services/configuracoesService'
 import { useAuthContext } from '../hooks/useAuthContext'
+import { uploadImage } from '../services/imageService'
 import Button from '../components/Button'
+import { toast } from 'react-hot-toast'
 
 const AplicarCiliosPage = () => {
   const navigate = useNavigate()
@@ -18,6 +20,7 @@ const AplicarCiliosPage = () => {
   const [resultado, setResultado] = useState<ProcessamentoIA | null>(null)
   const [erro, setErro] = useState<string>('')
   const [autoSalvar, setAutoSalvar] = useState(true)
+  const [salvandoImagem, setSalvandoImagem] = useState(false)
 
   
   const estilosCilios = getEstilosCilios()
@@ -177,6 +180,45 @@ const AplicarCiliosPage = () => {
     setResultado(null)
     setErro('')
     setProgresso(0)
+  }
+
+  // Função para salvar imagem na galeria local
+  const handleSalvarImagem = async () => {
+    if (!resultado?.imagemProcessada || !user?.id) {
+      toast.error('Erro: Imagem ou usuário não encontrado')
+      return
+    }
+
+    setSalvandoImagem(true)
+    
+    try {
+      // Converter base64 para File
+      const response = await fetch(resultado.imagemProcessada)
+      const blob = await response.blob()
+      
+      const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
+      const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}.jpg`
+      
+      const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
+      
+      // Fazer upload da imagem
+      const imagemSalva = await uploadImage(file)
+      
+      if (imagemSalva) {
+        toast.success('✅ Imagem salva na galeria local!')
+      } else {
+        toast.error('Erro ao salvar imagem na galeria')
+      }
+      
+      // Opcional: navegar para a galeria
+      // navigate('/minhas-imagens')
+      
+    } catch (error) {
+      console.error('Erro ao salvar imagem:', error)
+      toast.error('Erro ao salvar imagem na galeria')
+    } finally {
+      setSalvandoImagem(false)
+    }
   }
 
   return (
@@ -464,18 +506,35 @@ const AplicarCiliosPage = () => {
                   </div>
 
                   {/* Botões de Ação */}
-                  <div className="flex space-x-4">
-                    <Button 
-                      onClick={handleDownload}
-                      variant="primary"
-                      className="flex-1 shadow-elegant hover:scale-105 transition-transform"
-                    >
-                      📥 Baixar Resultado
-                    </Button>
+                  <div className="space-y-4">
+                    <div className="flex space-x-4">
+                      <Button 
+                        onClick={handleDownload}
+                        variant="primary"
+                        className="flex-1 shadow-elegant hover:scale-105 transition-transform"
+                      >
+                        📥 Baixar Resultado
+                      </Button>
+                      <Button 
+                        onClick={handleSalvarImagem}
+                        variant="secondary"
+                        disabled={salvandoImagem}
+                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 disabled:opacity-50"
+                      >
+                        {salvandoImagem ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                            Salvando...
+                          </>
+                        ) : (
+                          '💾 Salvar Imagem'
+                        )}
+                      </Button>
+                    </div>
                     <Button 
                       onClick={handleTryAgain}
                       variant="secondary"
-                      className="flex-1"
+                      className="w-full"
                     >
                       🔄 Tentar Outro Estilo
                     </Button>

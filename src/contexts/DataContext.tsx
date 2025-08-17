@@ -51,7 +51,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       // Carregar dados em paralelo
       const [clientes, imagens] = await Promise.all([
         clientesService.listar(user.id),
-        imagensService.listar(user.id)
+        imagensService.listar(user.id) // Agora passa user_id como primeiro parâmetro
       ])
 
       setTotalClientes(clientes.length)

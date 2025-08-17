@@ -2,6 +2,12 @@ import { supabase } from '../lib/supabase'
 import { generateId } from '../utils/generateId'
 // Force update to trigger Vite recompilation
 
+// Função para obter token de autenticação
+async function getAuthToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+}
+
 export interface ImagemCliente {
   id: string
   cliente_id: string
@@ -15,13 +21,19 @@ export interface ImagemCliente {
 
 // Serviço principal
 export const imagensService = {
-  async listar(clienteId?: string): Promise<ImagemCliente[]> {
+  async listar(userId?: string, clienteId?: string): Promise<ImagemCliente[]> {
     try {
       let query = supabase
         .from('imagens_clientes')
         .select('*')
         .order('created_at', { ascending: false })
 
+      // Sempre filtrar por user_id se fornecido
+      if (userId) {
+        query = query.eq('user_id', userId)
+      }
+
+      // Filtrar por cliente específico se fornecido
       if (clienteId) {
         query = query.eq('cliente_id', clienteId)
       }
@@ -38,7 +50,7 @@ export const imagensService = {
       console.error('Erro na consulta de imagens:', error)
       throw error
     }
-  },
+  }
 
   async criar(dadosImagem: Omit<ImagemCliente, 'id' | 'created_at'>): Promise<ImagemCliente> {
     try {
@@ -103,6 +115,40 @@ export const imagensService = {
     } catch (error) {
       console.error('Erro na exclusão de imagem:', error)
       throw error
+    }
+  },
+
+  async salvarViaAPI(dadosImagem: Omit<ImagemCliente, 'id' | 'created_at' | 'user_id'>): Promise<ImagemCliente> {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Token de autenticação não encontrado');
+      }
+
+      const response = await fetch('/api/save-client-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dadosImagem)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Falha ao salvar imagem');
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error('Erro ao salvar imagem via API:', error);
+      throw error instanceof Error ? error : new Error('Erro desconhecido ao salvar imagem');
     }
   }
 }

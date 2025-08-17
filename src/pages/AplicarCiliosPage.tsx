@@ -48,9 +48,8 @@ const AplicarCiliosPage = () => {
       const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
       const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}`
       
-      await imagensService.criar({
+      await imagensService.salvarViaAPI({
         cliente_id: '',
-        user_id: user.id,
         nome: `${nomeArquivo}.jpg`,
         url: resultado.imagemProcessada,
         tipo: 'depois' as 'antes' | 'depois' | 'processo',
@@ -201,10 +200,19 @@ const AplicarCiliosPage = () => {
       
       const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
       
-      // Fazer upload da imagem
+      // Fazer upload da imagem física
       const imagemSalva = await uploadImage(file)
       
       if (imagemSalva) {
+        // Salvar metadados na tabela imagens_clientes
+        await imagensService.salvarViaAPI({
+          cliente_id: '',
+          nome: nomeArquivo,
+          url: `/api/serve-image?imageId=${imagemSalva.id}`,
+          tipo: 'depois' as 'antes' | 'depois' | 'processo',
+          descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva manualmente`
+        })
+        
         toast.success('✅ Imagem salva na galeria local!')
       } else {
         toast.error('Erro ao salvar imagem na galeria')

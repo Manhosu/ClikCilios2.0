@@ -50,7 +50,7 @@ export const imagensService = {
       console.error('Erro na consulta de imagens:', error)
       throw error
     }
-  }
+  },
 
   async criar(dadosImagem: Omit<ImagemCliente, 'id' | 'created_at'>): Promise<ImagemCliente> {
     try {

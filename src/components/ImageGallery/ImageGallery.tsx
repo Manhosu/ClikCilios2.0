@@ -12,18 +12,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuthContext } from '../../hooks/useAuthContext';
-import { 
-  listImages, 
-  deleteImages, 
-  getImageUrl, 
-  formatFileSize,
-  type UploadedImage,
-  type ImageListResponse 
-} from '../../services/imageService';
+import { imagensService, type ImagemCliente, type ImageListResponse } from '../../services/imagensService';
 import { toast } from 'react-hot-toast';
 
 interface ImageGalleryProps {
-  onImageSelect?: (image: UploadedImage) => void;
+  onImageSelect?: (image: ImagemCliente) => void;
   onImageDelete?: (imageId: string) => void;
   selectable?: boolean;
   className?: string;
@@ -40,7 +33,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   className = ''
 }) => {
   const { user } = useAuthContext();
-  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [images, setImages] = useState<ImagemCliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -50,7 +43,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<ImageListResponse['pagination'] | null>(null);
-  const [directoryStats, setDirectoryStats] = useState<ImageListResponse['directory_stats'] | null>(null);
+  const [directoryStats, setDirectoryStats] = useState<ImageListResponse['directoryStats']>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Carregar imagens
@@ -61,7 +54,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       setLoading(true);
       setError(null);
       
-      const response = await listImages({
+      const response = await imagensService.listarViaAPI({
         page,
         limit: 20,
         sortBy: sortField,
@@ -70,7 +63,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
       setImages(response.images);
       setPagination(response.pagination);
-      setDirectoryStats(response.directory_stats);
+      setDirectoryStats(response.directoryStats);
       setCurrentPage(page);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar imagens';
@@ -88,7 +81,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // Filtrar imagens por termo de busca
   const filteredImages = images.filter(image => 
-    image.original_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (image.original_name || image.nome || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Selecionar/deselecionar imagem
@@ -123,7 +116,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       setIsDeleting(true);
       const imageIds = Array.from(selectedImages);
       
-      const result = await deleteImages(imageIds);
+      const result = await imagensService.deletarViaAPI(imageIds);
       
       if (result.success) {
         toast.success(result.message);
@@ -159,7 +152,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
     try {
       setIsDeleting(true);
-      const result = await deleteImages(imageId);
+      const result = await imagensService.deletarViaAPI(imageId);
       
       if (result.success) {
         toast.success('Imagem deletada com sucesso');
@@ -215,7 +208,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <p className="text-sm text-gray-600">Espaço Utilizado</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">{formatFileSize(directoryStats.total_size / directoryStats.total_images || 0)}</p>
+              <p className="text-2xl font-bold text-purple-600">{imagensService.formatFileSize(directoryStats.total_size / directoryStats.total_images || 0)}</p>
               <p className="text-sm text-gray-600">Tamanho Médio</p>
             </div>
           </div>
@@ -366,8 +359,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                   {/* Imagem */}
                   <div className="aspect-square bg-gray-100 overflow-hidden">
                     <img
-                      src={getImageUrl(image.id)}
-                      alt={image.original_name}
+                      src={imagensService.getImageUrl(image.id)}
+                      alt={image.original_name || image.nome || 'Imagem sem nome'}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       onClick={() => onImageSelect?.(image)}
                     />
@@ -375,11 +368,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
                   {/* Informações */}
                   <div className="p-3">
-                    <p className="text-sm font-medium text-gray-900 truncate" title={image.original_name}>
-                      {image.original_name}
+                    <p className="text-sm font-medium text-gray-900 truncate" title={image.original_name || image.nome || 'Imagem sem nome'}>
+                      {image.original_name || image.nome || 'Imagem sem nome'}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {formatFileSize(image.file_size)}
+                      {imagensService.formatFileSize(image.file_size)}
                     </p>
                   </div>
 
@@ -431,8 +424,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                     {/* Thumbnail */}
                     <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                       <img
-                        src={getImageUrl(image.id)}
-                        alt={image.original_name}
+                        src={imagensService.getImageUrl(image.id)}
+                        alt={image.original_name || image.nome || 'Imagem sem nome'}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -440,10 +433,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                     {/* Informações */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {image.original_name}
+                        {image.original_name || image.nome || 'Imagem sem nome'}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {formatFileSize(image.file_size)} • {image.mime_type}
+                        {imagensService.formatFileSize(image.file_size)} • {image.mime_type}
                       </p>
                       {image.created_at && (
                         <p className="text-xs text-gray-400 mt-1">
@@ -477,30 +470,30 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           )}
 
           {/* Paginação */}
-          {pagination && pagination.total_pages > 1 && (
+          {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between bg-white rounded-lg border p-4">
               <div className="text-sm text-gray-600">
-                Mostrando {((pagination.current_page - 1) * pagination.items_per_page) + 1} a{' '}
-                {Math.min(pagination.current_page * pagination.items_per_page, pagination.total_items)} de{' '}
-                {pagination.total_items} imagens
+                Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} a{' '}
+                {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de{' '}
+                {pagination.totalItems} imagens
               </div>
               
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handlePageChange(pagination.current_page - 1)}
-                  disabled={!pagination.has_prev_page || loading}
+                  onClick={() => handlePageChange(pagination.currentPage - 1)}
+                  disabled={!pagination.hasPrevPage || loading}
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 
                 <span className="px-4 py-2 text-sm">
-                  Página {pagination.current_page} de {pagination.total_pages}
+                  Página {pagination.currentPage} de {pagination.totalPages}
                 </span>
                 
                 <button
-                  onClick={() => handlePageChange(pagination.current_page + 1)}
-                  disabled={!pagination.has_next_page || loading}
+                  onClick={() => handlePageChange(pagination.currentPage + 1)}
+                  disabled={!pagination.hasNextPage || loading}
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />

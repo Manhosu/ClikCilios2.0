@@ -4,13 +4,13 @@ import ImageUpload from '../ImageUpload/ImageUpload';
 import ImageGallery from '../ImageGallery/ImageGallery';
 import ImageViewer from '../ImageViewer/ImageViewer';
 import { useAuthContext } from '../../hooks/useAuthContext';
-import { type UploadedImage } from '../../services/imageService';
+import { type ImagemCliente } from '../../services/imagensService';
 import { toast } from 'react-hot-toast';
 
 interface ImageManagerProps {
   className?: string;
   defaultTab?: 'upload' | 'gallery';
-  onImageSelect?: (image: UploadedImage) => void;
+  onImageSelect?: (image: ImagemCliente) => void;
   selectable?: boolean;
 }
 
@@ -24,12 +24,12 @@ const ImageManager: React.FC<ImageManagerProps> = ({
 }) => {
   const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState<Tab>(defaultTab);
-  const [selectedImage, setSelectedImage] = useState<UploadedImage | null>(null);
-  const [galleryImages, setGalleryImages] = useState<UploadedImage[]>([]);
+  const [selectedImage, setSelectedImage] = useState<ImagemCliente | null>(null);
+  const [galleryImages, setGalleryImages] = useState<ImagemCliente[]>([]);
   const [refreshGallery, setRefreshGallery] = useState(0);
 
   // Handle successful upload
-  const handleUploadSuccess = useCallback((image: UploadedImage) => {
+  const handleUploadSuccess = useCallback((image: ImagemCliente) => {
     // Add new image to gallery
     setGalleryImages(prev => [image, ...prev]);
     
@@ -43,7 +43,7 @@ const ImageManager: React.FC<ImageManagerProps> = ({
   }, []);
 
   // Handle image selection from gallery
-  const handleImageSelect = useCallback((image: UploadedImage) => {
+  const handleImageSelect = useCallback((image: ImagemCliente) => {
     if (onImageSelect) {
       onImageSelect(image);
     } else {

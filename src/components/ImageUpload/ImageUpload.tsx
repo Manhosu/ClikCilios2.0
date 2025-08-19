@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuthContext } from '../../hooks/useAuthContext';
-import { uploadImageToSupabase, type UploadedImage } from '../../services/imageService';
+import { imagensService, type ImagemCliente } from '../../services/imagensService';
 import { toast } from 'react-hot-toast';
 
 interface ImageUploadProps {
-  onUploadSuccess?: (image: UploadedImage) => void;
+  onUploadSuccess?: (image: ImagemCliente) => void;
   onUploadError?: (error: string) => void;
   maxFileSize?: number; // em bytes
   acceptedTypes?: string[];
@@ -25,7 +25,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedImage[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<ImagemCliente[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Validação de arquivo
@@ -73,19 +73,24 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             }));
           }, 100);
 
-          const imageUrl = await uploadImageToSupabase(file, user?.id || '');
+          const imageUrl = await imagensService.uploadToStorage(file, user?.id || '');
           
           clearInterval(progressInterval);
           setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
 
-          // Criar objeto UploadedImage
-          const uploadedImage: UploadedImage = {
+          // Criar objeto ImagemCliente
+          const uploadedImage: ImagemCliente = {
             id: crypto.randomUUID(),
             original_name: file.name,
+            nome: file.name,
             url: imageUrl,
             file_size: file.size,
             mime_type: file.type,
-            path: imageUrl
+            storage_path: imageUrl,
+            created_at: new Date().toISOString(),
+            cliente_id: 'temp',
+            user_id: user?.id || '',
+            tipo: 'antes'
           };
 
           // Adicionar à lista de arquivos enviados
@@ -163,14 +168,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     fileInputRef.current?.click();
   }, []);
 
-  // Formatar tamanho do arquivo
-  const formatFileSize = useCallback((bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }, []);
 
   if (!user) {
     return (
@@ -266,7 +263,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                   <div>
                     <p className="text-sm font-medium text-gray-900">{file.original_name}</p>
                     <p className="text-xs text-gray-500">
-                      {formatFileSize(file.file_size)} • {file.mime_type}
+                      {imagensService.formatFileSize(file.file_size)} • {file.mime_type}
                     </p>
                   </div>
                 </div>

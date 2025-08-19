@@ -13,12 +13,12 @@ import {
   Maximize2,
   Minimize2
 } from 'lucide-react';
-import { getImageUrl, formatFileSize, type UploadedImage } from '../../services/imageService';
+import { imagensService, type ImagemCliente } from '../../services/imagensService';
 import { toast } from 'react-hot-toast';
 
 interface ImageViewerProps {
-  image: UploadedImage | null;
-  images?: UploadedImage[];
+  image: ImagemCliente | null;
+  images?: ImagemCliente[];
   onClose: () => void;
   onDelete?: (imageId: string) => void;
   onNext?: () => void;
@@ -187,14 +187,14 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     if (!image) return;
 
     try {
-      const imageUrl = getImageUrl(image.id);
+      const imageUrl = imagensService.getImageUrl(image.id);
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = image.original_name;
+      link.download = image.original_name || image.nome || 'imagem';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -384,7 +384,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
           </div>
         ) : (
           <img
-            src={getImageUrl(image.id)}
+            src={imagensService.getImageUrl(image.id)}
             alt={image.original_name}
             className="max-w-none transition-transform duration-200 select-none"
             style={{
@@ -414,7 +414,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-300">Tamanho:</span>
-                <span>{formatFileSize(image.file_size)}</span>
+                <span>{imagensService.formatFileSize(image.file_size)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-300">Tipo:</span>

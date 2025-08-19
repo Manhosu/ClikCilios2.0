@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { clientesService, Cliente } from '../services/clientesService'
-import { imagensService, ImagemCliente } from '../services/imagensService'
+import { imageApiService, ImagemCliente } from '../services/imageApiService'
 import Button from '../components/Button'
 
 const MinhasImagensPage: React.FC = () => {
@@ -86,7 +86,7 @@ const MinhasImagensPage: React.FC = () => {
 
       // Carregar imagens e clientes usando os serviços
       const [imagensData, clientesData] = await Promise.all([
-        imagensService.listar(user.id),
+        imageApiService.listar(),
         clientesService.listar(user.id)
       ])
 
@@ -112,7 +112,7 @@ const MinhasImagensPage: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir esta imagem?')) return
 
     try {
-      const sucesso = await imagensService.excluir(id)
+      const sucesso = await imageApiService.excluir(id)
       if (sucesso) {
         setImagens(prev => prev.filter(img => img.id !== id))
         setModalAberto(false)

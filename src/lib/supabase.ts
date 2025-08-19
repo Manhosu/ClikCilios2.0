@@ -101,6 +101,112 @@ export interface Database {
           updated_at?: string
         }
       }
+      configuracoes_usuario: {
+        Row: {
+          id: string
+          user_id: string
+          tema: 'claro' | 'escuro'
+          notificacoes_email: boolean
+          notificacoes_push: boolean
+          idioma: 'pt-BR' | 'en-US' | 'es-ES'
+          timezone: string
+          formato_data: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'
+          formato_hora: '12h' | '24h'
+          moeda: 'BRL' | 'USD' | 'EUR'
+          backup_automatico: boolean
+          backup_frequencia: 'diario' | 'semanal' | 'mensal'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          tema?: 'claro' | 'escuro'
+          notificacoes_email?: boolean
+          notificacoes_push?: boolean
+          idioma?: 'pt-BR' | 'en-US' | 'es-ES'
+          timezone?: string
+          formato_data?: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'
+          formato_hora?: '12h' | '24h'
+          moeda?: 'BRL' | 'USD' | 'EUR'
+          backup_automatico?: boolean
+          backup_frequencia?: 'diario' | 'semanal' | 'mensal'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          tema?: 'claro' | 'escuro'
+          notificacoes_email?: boolean
+          notificacoes_push?: boolean
+          idioma?: 'pt-BR' | 'en-US' | 'es-ES'
+          timezone?: string
+          formato_data?: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'
+          formato_hora?: '12h' | '24h'
+          moeda?: 'BRL' | 'USD' | 'EUR'
+          backup_automatico?: boolean
+          backup_frequencia?: 'diario' | 'semanal' | 'mensal'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      imagens_clientes: {
+        Row: {
+          id: string
+          cliente_id: string
+          user_id: string
+          nome: string
+          url: string
+          tipo?: 'antes' | 'depois' | 'processo'
+          descricao?: string
+          filename?: string
+          original_name?: string
+          file_size?: number
+          mime_type?: string
+          width?: number
+          height?: number
+          storage_path?: string
+          created_at: string
+          updated_at?: string
+        }
+        Insert: {
+          id?: string
+          cliente_id: string
+          user_id: string
+          nome: string
+          url: string
+          tipo?: 'antes' | 'depois' | 'processo'
+          descricao?: string
+          filename?: string
+          original_name?: string
+          file_size?: number
+          mime_type?: string
+          width?: number
+          height?: number
+          storage_path?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          cliente_id?: string
+          user_id?: string
+          nome?: string
+          url?: string
+          tipo?: 'antes' | 'depois' | 'processo'
+          descricao?: string
+          filename?: string
+          original_name?: string
+          file_size?: number
+          mime_type?: string
+          width?: number
+          height?: number
+          storage_path?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
       cupons: {
         Row: {
           id: string

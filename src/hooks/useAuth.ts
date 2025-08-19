@@ -34,11 +34,24 @@ export const useAuth = () => {
     try {
       console.log('🔍 Carregando perfil do usuário:', authUser.email)
       
-      const { data: userData, error } = await supabase
+      // Timeout para evitar travamentos
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Timeout ao carregar perfil do usuário'))
+        }, 5000) // 5 segundos
+      })
+      
+      // Buscar dados do usuário no Supabase
+      const userDataPromise = supabase
         .from('users')
         .select('id, email, nome, is_admin, onboarding_completed')
         .eq('id', authUser.id)
         .single()
+      
+      const { data: userData, error } = await Promise.race([
+        userDataPromise,
+        timeoutPromise
+      ]) as any
 
       let user: User
 
@@ -70,10 +83,20 @@ export const useAuth = () => {
         isAuthenticated: true
       })
       
-      // Verificar e corrigir configuração do Supabase Storage em background
-      verificarECorrigirStorage()
-        .then(() => console.log('✅ Storage verificado e configurado'))
-        .catch(error => console.error('❌ Erro ao verificar storage:', error))
+      // Verificar e corrigir configuração do Supabase Storage em background com timeout
+      try {
+        const storagePromise = verificarECorrigirStorage()
+        const storageTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Timeout na verificação do storage'))
+          }, 3000) // 3 segundos
+        })
+        
+        await Promise.race([storagePromise, storageTimeoutPromise])
+        console.log('✅ Storage verificado e configurado')
+      } catch (storageError) {
+        console.warn('⚠️ Erro na verificação do storage (continuando):', storageError)
+      }
         
     } catch (error) {
       console.error('❌ Erro ao carregar perfil:', error)
@@ -94,22 +117,47 @@ export const useAuth = () => {
         isAuthenticated: true
       })
       
-      // Verificar e corrigir configuração do Supabase Storage em background
-      verificarECorrigirStorage()
-        .then(() => console.log('✅ Storage verificado e configurado (fallback)'))
-        .catch(error => console.error('❌ Erro ao verificar storage (fallback):', error))
+      // Verificar e corrigir configuração do Supabase Storage em background com timeout
+      try {
+        const storagePromise = verificarECorrigirStorage()
+        const storageTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Timeout na verificação do storage (fallback)'))
+          }, 3000) // 3 segundos
+        })
+        
+        await Promise.race([storagePromise, storageTimeoutPromise])
+        console.log('✅ Storage verificado e configurado (fallback)')
+      } catch (storageError) {
+        console.warn('⚠️ Erro na verificação do storage (fallback, continuando):', storageError)
+      }
     }
   }, [])
 
   // Inicialização da autenticação
   useEffect(() => {
     let mounted = true
+    let initTimeout: NodeJS.Timeout
     
     const initializeAuth = async () => {
       try {
         console.log('🚀 Inicializando autenticação...')
         
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // Timeout de segurança para evitar travamentos
+        const timeoutPromise = new Promise((_, reject) => {
+          initTimeout = setTimeout(() => {
+            reject(new Error('Timeout na inicialização da autenticação'))
+          }, 10000) // 10 segundos
+        })
+        
+        const authPromise = supabase.auth.getSession()
+        
+        const { data: { session }, error } = await Promise.race([
+          authPromise,
+          timeoutPromise
+        ]) as any
+        
+        clearTimeout(initTimeout)
         
         if (!mounted) return
         
@@ -136,6 +184,7 @@ export const useAuth = () => {
         }
       } catch (error) {
         console.error('❌ Erro na inicialização:', error)
+        clearTimeout(initTimeout)
         if (mounted) {
           setAuthState({
             user: null,
@@ -174,15 +223,19 @@ export const useAuth = () => {
       }
     })
 
-    // Inicializar
-    initializeAuth()
+    // Inicializar com delay para evitar race conditions
+    const initDelay = setTimeout(() => {
+      initializeAuth()
+    }, 100)
 
     // Cleanup
     return () => {
       mounted = false
+      clearTimeout(initDelay)
+      clearTimeout(initTimeout)
       subscription.unsubscribe()
     }
-  }, [loadUserProfile])
+  }, []) // Removida dependência loadUserProfile para evitar loop infinito
 
   // Função de login
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {

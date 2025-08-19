@@ -19,21 +19,9 @@ export async function verificarECorrigirStorage() {
     const mcpBucket = buckets?.find(b => b.name === 'mcp');
     
     if (!mcpBucket) {
-      console.log('⚠️ Bucket MCP não encontrado, tentando criar...');
-      
-      // Criar o bucket MCP
-      const { error: createError } = await supabase.storage.createBucket('mcp', {
-        public: false,
-        fileSizeLimit: 10485760, // 10MB
-        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/jpg']
-      });
-      
-      if (createError) {
-        console.error('❌ Erro ao criar bucket MCP:', createError.message);
-        return false;
-      }
-      
-      console.log('✅ Bucket MCP criado com sucesso!');
+      console.log('⚠️ Bucket MCP não encontrado. Buckets devem ser criados pelo administrador.');
+      // Não tentar criar buckets automaticamente devido às políticas RLS
+      console.log('✅ Verificação de storage concluída - buckets gerenciados via admin');
     } else {
       console.log('✅ Bucket MCP já existe');
     }

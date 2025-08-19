@@ -11,7 +11,7 @@ dotenv.config({ path: '.env.local' });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 3001;
+const PORT = 3003;
 
 // Função para simular req/res do Next.js
 function createNextApiHandler(handler) {
@@ -88,22 +88,62 @@ function createNextApiHandler(handler) {
 // Carregar handlers específicos
 async function loadSaveClientImageHandler() {
   try {
-    const apiPath = join(__dirname, 'api', 'save-client-image.ts');
-    const apiModule = await import(`file://${apiPath}`);
-    return apiModule.default;
+    const { pathToFileURL } = await import('url');
+    const filePath = pathToFileURL('./pages/api/save-client-image.ts').href;
+    const module = await import(filePath);
+    return module.default;
   } catch (error) {
-    console.error('Erro ao carregar save-client-image:', error);
+    console.error('Erro ao carregar save-client-image handler:', error);
     return null;
   }
 }
 
 async function loadTestSaveImageHandler() {
   try {
-    const apiPath = join(__dirname, 'api', 'test-save-image.ts');
-    const apiModule = await import(`file://${apiPath}`);
-    return apiModule.default;
+    const { pathToFileURL } = await import('url');
+    const filePath = pathToFileURL('./pages/api/test-save-image.ts').href;
+    const module = await import(filePath);
+    return module.default;
   } catch (error) {
-    console.error('Erro ao carregar test-save-image:', error);
+    console.error('Erro ao carregar test-save-image handler:', error);
+    return null;
+  }
+}
+
+async function loadTestAuthHandler() {
+  try {
+    const { pathToFileURL } = await import('url');
+    const filePath = pathToFileURL('./pages/api/test-auth.ts').href;
+    const module = await import(filePath);
+    return module.default;
+  } catch (error) {
+    console.error('Erro ao carregar test-auth handler:', error);
+    return null;
+  }
+}
+
+// Função para carregar o handler da API de teste simples
+async function loadTestSaveSimpleHandler() {
+  try {
+    const { pathToFileURL } = await import('url');
+    const filePath = pathToFileURL('./pages/api/test-save-simple.ts').href;
+    const module = await import(filePath);
+    return module.default;
+  } catch (error) {
+    console.error('❌ Erro ao carregar handler de teste simples:', error);
+    return null;
+  }
+}
+
+// Função para carregar o handler da API list-images
+async function loadListImagesHandler() {
+  try {
+    const { pathToFileURL } = await import('url');
+    const filePath = pathToFileURL('./pages/api/list-images.ts').href;
+    const module = await import(filePath);
+    return module.default;
+  } catch (error) {
+    console.error('❌ Erro ao carregar list-images:', error);
     return null;
   }
 }
@@ -148,6 +188,45 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ 
         success: false, 
         error: 'Erro ao carregar handler da API de teste' 
+      }));
+    }
+  } else if (parsedUrl.pathname === '/api/test-auth') {
+    const handler = await loadTestAuthHandler();
+    if (handler) {
+      const nextHandler = createNextApiHandler(handler);
+      await nextHandler(req, res);
+    } else {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        success: false, 
+        error: 'Erro ao carregar handler da API de teste de autenticação' 
+      }));
+    }
+  } else if (parsedUrl.pathname === '/api/test-save-simple') {
+    const handler = await loadTestSaveSimpleHandler();
+    if (handler) {
+      const nextHandler = createNextApiHandler(handler);
+      await nextHandler(req, res);
+    } else {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        success: false, 
+        error: 'Erro ao carregar handler da API de teste simples' 
+      }));
+    }
+  } else if (parsedUrl.pathname === '/api/list-images') {
+    const handler = await loadListImagesHandler();
+    if (handler) {
+      const nextHandler = createNextApiHandler(handler);
+      await nextHandler(req, res);
+    } else {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        success: false, 
+        error: 'Erro ao carregar handler da API list-images' 
       }));
     }
   } else {

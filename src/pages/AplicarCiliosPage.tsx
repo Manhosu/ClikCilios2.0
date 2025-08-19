@@ -4,7 +4,6 @@ import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '
 import { imagensService } from '../services/imagensService'
 import { configuracoesService } from '../services/configuracoesService'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { uploadImageToSupabase } from '../services/imageService';
 import Button from '../components/Button'
 import { toast } from 'react-hot-toast'
 
@@ -55,7 +54,7 @@ const AplicarCiliosPage = () => {
       const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
       
       // Fazer upload da imagem física para o Supabase
-      const publicUrl = await uploadImageToSupabase(file, user.id);
+      const publicUrl = await imagensService.uploadToStorage(file, user.id);
       
       // Gerar um UUID válido para cliente_id (cliente padrão)
       const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
@@ -216,7 +215,7 @@ const AplicarCiliosPage = () => {
       const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
       
       // Fazer upload da imagem física para o Supabase
-      const publicUrl = await uploadImageToSupabase(file, user.id);
+      const publicUrl = await imagensService.uploadToStorage(file, user.id);
       
       // Gerar um UUID válido para cliente_id (cliente padrão)
       const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { clientesService } from '../services/clientesService'
-import { imagensService } from '../services/imagensService'
+import { imageApiService } from '../services/imageApiService'
 
 interface DataContextType {
   totalClientes: number
@@ -51,7 +51,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       // Carregar dados em paralelo
       const [clientes, imagens] = await Promise.all([
         clientesService.listar(user.id),
-        imagensService.listar(user.id) // Agora passa user_id como primeiro parâmetro
+        imageApiService.listar() // Usa a API list-images
       ])
 
       setTotalClientes(clientes.length)

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:api:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(rm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill:*)",
+      "mcp__supabase-mcp__list_projects",
+      "mcp__supabase-mcp__list_tables",
+      "mcp__supabase-mcp__list_migrations",
+      "mcp__supabase-mcp__get_advisors",
+      "mcp__supabase-mcp__apply_migration",
+      "mcp__supabase-mcp__execute_sql",
+      "Bash(findstr:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

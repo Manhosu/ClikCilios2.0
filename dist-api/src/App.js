@@ -1,0 +1,85 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import AuthProvider from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { DataProvider } from './contexts/DataContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import WelcomeModal from './components/WelcomeModal';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import AplicarCiliosPage from './pages/AplicarCiliosPage';
+import ClientesPage from './pages/ClientesPage';
+import MinhasImagensPage from './pages/MinhasImagensPage';
+import ConfiguracoesPage from './pages/ConfiguracoesPage';
+import ParceriasPage from './pages/ParceriasPage';
+import AdminCuponsPage from './pages/AdminCuponsPage';
+import AdminEmailsPage from './pages/AdminEmailsPage';
+import AdminRelatorioCuponsPage from './pages/AdminRelatorioCuponsPage';
+import HotmartAdminPage from './pages/HotmartAdminPage';
+function App() {
+    return (<ThemeProvider>
+      <AuthProvider>
+        <DataProvider>
+          <div className="App">
+          <Routes>
+            
+            <Route path="/login" element={<LoginPage />}/>
+            
+            
+            <Route path="/dashboard" element={<ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>}/>
+            
+            <Route path="/aplicar-cilios" element={<ProtectedRoute>
+                <AplicarCiliosPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/clientes" element={<ProtectedRoute>
+                <ClientesPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/minhas-imagens" element={<ProtectedRoute>
+                <MinhasImagensPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/configuracoes" element={<ProtectedRoute>
+                <ConfiguracoesPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/parcerias" element={<ProtectedRoute>
+                <ParceriasPage />
+              </ProtectedRoute>}/>
+            
+            
+            <Route path="/admin/cupons" element={<ProtectedRoute>
+                <AdminCuponsPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/admin/emails" element={<ProtectedRoute>
+                <AdminEmailsPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/admin/relatorio-cupons" element={<ProtectedRoute>
+                <AdminRelatorioCuponsPage />
+              </ProtectedRoute>}/>
+            
+            <Route path="/admin/hotmart" element={<HotmartAdminPage />}/>
+            
+            
+            <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
+            
+            
+            <Route path="*" element={<Navigate to="/dashboard" replace/>}/>
+          </Routes>
+          
+          
+          <WelcomeModal />
+          
+          
+          <Toaster position="top-right" richColors/>
+          </div>
+        </DataProvider>
+      </AuthProvider>
+    </ThemeProvider>);
+}
+export default App;

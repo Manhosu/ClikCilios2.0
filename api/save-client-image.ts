@@ -6,10 +6,9 @@ import {
   validateMethod,
   handleApiError
 } from '../src/middleware/validation';
-import { generateId } from '../src/utils/generateId';
 
 // Configuração do Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -66,10 +65,8 @@ function validateImageData(data: any): SaveClientImageRequest {
 async function saveClientImage(userId: string, imageData: SaveClientImageRequest) {
   try {
     const novaImagem = {
-      id: generateId(),
       user_id: userId,
-      ...imageData,
-      created_at: new Date().toISOString()
+      ...imageData
     };
 
     const { data, error } = await supabase
@@ -123,8 +120,13 @@ const saveClientImageHandler = async (req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    return handleApiError(res, error);
+    console.error('Erro na API save-client-image:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor',
+      type: 'internal_error'
+    });
   }
 };
 
-export default withErrorHandling(saveClientImageHandler);
+export default saveClientImageHandler;

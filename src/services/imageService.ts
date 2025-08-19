@@ -1,15 +1,17 @@
 import { supabase } from '../lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface UploadedImage {
   id: string;
-  filename: string;
-  original_name: string;
+  path: string;
+  url: string;
   file_size: number;
   mime_type: string;
+  original_name: string;
   width?: number;
   height?: number;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ImageListResponse {
@@ -50,6 +52,41 @@ export interface DeleteImageResponse {
 }
 
 /**
+ * Faz upload de uma imagem diretamente para o Supabase Storage.
+ * @param file O arquivo de imagem a ser enviado.
+ * @param userId O ID do usuário para organizar os arquivos.
+ * @returns A URL pública da imagem salva.
+ */
+export async function uploadImageToSupabase(file: File, userId: string): Promise<string> {
+  if (!userId) {
+    throw new Error('O ID do usuário é necessário para o upload.');
+  }
+
+  const fileExtension = file.name.split('.').pop();
+  const fileName = `${uuidv4()}.${fileExtension}`;
+  const filePath = `${userId}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from('mcp')
+    .upload(filePath, file);
+
+  if (error) {
+    console.error('Erro no upload para o Supabase Storage:', error);
+    throw new Error(`Falha no upload da imagem: ${error.message}`);
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('mcp')
+    .getPublicUrl(data.path);
+
+  if (!publicUrl) {
+    throw new Error('Não foi possível obter a URL pública da imagem.');
+  }
+
+  return publicUrl;
+}
+
+/**
  * Obtém o token de autenticação atual
  */
 async function getAuthToken(): Promise<string | null> {
@@ -59,45 +96,6 @@ async function getAuthToken(): Promise<string | null> {
   } catch (error) {
     console.error('Erro ao obter token:', error);
     return null;
-  }
-}
-
-/**
- * Faz upload de uma imagem
- */
-export async function uploadImage(file: File): Promise<UploadedImage> {
-  try {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Token de autenticação não encontrado');
-    }
-
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const response = await fetch('/api/upload-image', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-      throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Falha no upload');
-    }
-
-    return result.data;
-  } catch (error) {
-    console.error('Erro no upload:', error);
-    throw error instanceof Error ? error : new Error('Erro desconhecido no upload');
   }
 }
 

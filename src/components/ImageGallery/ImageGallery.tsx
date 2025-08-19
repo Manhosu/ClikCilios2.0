@@ -30,7 +30,7 @@ interface ImageGalleryProps {
 }
 
 type ViewMode = 'grid' | 'list';
-type SortField = 'created_at' | 'updated_at' | 'filename' | 'file_size' | 'original_name';
+type SortField = 'created_at' | 'updated_at' | 'file_size' | 'original_name';
 type SortOrder = 'asc' | 'desc';
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({
@@ -88,8 +88,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // Filtrar imagens por termo de busca
   const filteredImages = images.filter(image => 
-    image.original_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    image.filename.toLowerCase().includes(searchTerm.toLowerCase())
+    image.original_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Selecionar/deselecionar imagem
@@ -446,9 +445,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                       <p className="text-xs text-gray-500 mt-1">
                         {formatFileSize(image.file_size)} • {image.mime_type}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(image.created_at).toLocaleDateString('pt-BR')}
-                      </p>
+                      {image.created_at && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(image.created_at).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
                     </div>
 
                     {/* Ações */}

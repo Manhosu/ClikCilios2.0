@@ -4,7 +4,7 @@ import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '
 import { imagensService } from '../services/imagensService'
 import { configuracoesService } from '../services/configuracoesService'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { uploadImage } from '../services/imageService'
+import { uploadImageToSupabase } from '../services/imageService';
 import Button from '../components/Button'
 import { toast } from 'react-hot-toast'
 
@@ -45,20 +45,35 @@ const AplicarCiliosPage = () => {
     if (!autoSalvar || !user?.id || !resultado.imagemProcessada) return
 
     try {
+      // Converter base64 para File
+      const response = await fetch(resultado.imagemProcessada)
+      const blob = await response.blob()
+      
       const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
-      const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}`
+      const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}.jpg`
       
+      const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
+      
+      // Fazer upload da imagem física para o Supabase
+      const publicUrl = await uploadImageToSupabase(file, user.id);
+      
+      // Gerar um UUID válido para cliente_id (cliente padrão)
+      const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
+      
+      // Salvar metadados na tabela imagens_clientes
       await imagensService.salvarViaAPI({
-        cliente_id: '',
-        nome: `${nomeArquivo}.jpg`,
-        url: resultado.imagemProcessada,
+        cliente_id: clienteId,
+        nome: nomeArquivo,
+        url: publicUrl, // Usar a URL pública do Supabase
         tipo: 'depois' as 'antes' | 'depois' | 'processo',
-        descricao: 'Imagem salva automaticamente após processamento'
-      })
+        descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva automaticamente`
+      });
       
-      console.log('✅ Imagem salva automaticamente')
+      console.log('✅ Imagem salva automaticamente no Supabase')
+      toast.success('✅ Imagem salva automaticamente!')
     } catch (error) {
       console.error('Erro ao salvar imagem automaticamente:', error)
+      toast.error('⚠️ Erro no salvamento automático')
     }
   }
 
@@ -200,23 +215,22 @@ const AplicarCiliosPage = () => {
       
       const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
       
-      // Fazer upload da imagem física
-      const imagemSalva = await uploadImage(file)
+      // Fazer upload da imagem física para o Supabase
+      const publicUrl = await uploadImageToSupabase(file, user.id);
       
-      if (imagemSalva) {
-        // Salvar metadados na tabela imagens_clientes
-        await imagensService.salvarViaAPI({
-          cliente_id: '',
-          nome: nomeArquivo,
-          url: `/api/serve-image?imageId=${imagemSalva.id}`,
-          tipo: 'depois' as 'antes' | 'depois' | 'processo',
-          descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva manualmente`
-        })
-        
-        toast.success('✅ Imagem salva na galeria local!')
-      } else {
-        toast.error('Erro ao salvar imagem na galeria')
-      }
+      // Gerar um UUID válido para cliente_id (cliente padrão)
+      const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
+      
+      // Salvar metadados na tabela imagens_clientes
+      await imagensService.salvarViaAPI({
+        cliente_id: clienteId,
+        nome: nomeArquivo,
+        url: publicUrl, // Usar a URL pública do Supabase
+        tipo: 'depois' as 'antes' | 'depois' | 'processo',
+        descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva manualmente`
+      });
+      
+      toast.success('✅ Imagem salva na galeria com sucesso!');
       
       // Opcional: navegar para a galeria
       // navigate('/minhas-imagens')

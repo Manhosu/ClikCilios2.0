@@ -4,9 +4,6 @@ import { useAuthContext } from '../hooks/useAuthContext'
 import { configuracoesService, Configuracoes } from '../services/configuracoesService'
 import Button from '../components/Button'
 
-// Definir isDevMode para desenvolvimento
-const isDevMode = import.meta.env.DEV
-
 const ConfiguracoesPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, logout, isLoading: userLoading } = useAuthContext()
@@ -111,38 +108,13 @@ const ConfiguracoesPage: React.FC = () => {
         return
       }
 
-      if (isDevMode) {
-        // Modo desenvolvimento - simular atualização
-        // Modo desenvolvimento: simulando atualização
-        
-        // Atualizar dados no localStorage para consistência
-        const dadosUser = localStorage.getItem('ciliosclick_user')
-        if (dadosUser) {
-          const userData = JSON.parse(dadosUser)
-          const updatedUser = {
-            ...userData,
-            nome: dadosPerfil.nome,
-            email: dadosPerfil.email
-          }
-          localStorage.setItem('ciliosclick_user', JSON.stringify(updatedUser))
-        }
-        
-        // Simular sucesso
-        alert('✅ Dados da conta atualizados com sucesso!')
-        setEditandoPerfil(false)
-        
-        // Forçar recarregamento da página para refletir mudanças
-        window.location.reload()
-        
-      } else {
-        // TODO: Implementar integração com Supabase quando estiver em produção
-        // const { error } = await supabase.from('users').update({
-        //   nome: dadosPerfil.nome,
-        //   email: dadosPerfil.email
-        // }).eq('id', user.id)
-        
-        alert('⚠️ Atualização de perfil ainda não implementada para produção')
-      }
+      // TODO: Implementar integração com Supabase quando estiver em produção
+      // const { error } = await supabase.from('users').update({
+      //   nome: dadosPerfil.nome,
+      //   email: dadosPerfil.email
+      // }).eq('id', user.id)
+      
+      alert('⚠️ Atualização de perfil ainda não implementada para produção')
 
     } catch (error) {
       // Erro ao salvar perfil - log removido para produção

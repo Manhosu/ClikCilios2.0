@@ -4,8 +4,33 @@ import { generateId } from '../utils/generateId'
 
 // Função para obter token de autenticação
 async function getAuthToken(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('❌ Erro ao obter sessão:', error.message);
+      // Tentar renovar a sessão
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('❌ Erro ao renovar token:', refreshError.message);
+        return null;
+      }
+      
+      console.log('✅ Token renovado com sucesso');
+      return refreshedSession?.access_token || null;
+    }
+    
+    if (!session?.access_token) {
+      console.warn('⚠️ Nenhum token de acesso encontrado');
+      return null;
+    }
+    
+    return session.access_token;
+  } catch (error) {
+    console.error('❌ Erro crítico ao obter token:', error);
+    return null;
+  }
 }
 
 export interface ImagemCliente {

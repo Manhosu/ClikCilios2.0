@@ -1,20 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuthContext } from '../../hooks/useAuthContext';
-import { uploadImage } from '../../services/imageService';
+import { uploadImageToSupabase, type UploadedImage } from '../../services/imageService';
 import { toast } from 'react-hot-toast';
-
-interface UploadedImage {
-  id: string;
-  filename: string;
-  original_name: string;
-  file_size: number;
-  mime_type: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-}
 
 interface ImageUploadProps {
   onUploadSuccess?: (image: UploadedImage) => void;
@@ -85,16 +73,26 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             }));
           }, 100);
 
-          const result = await uploadImage(file);
+          const imageUrl = await uploadImageToSupabase(file, user?.id || '');
           
           clearInterval(progressInterval);
           setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
 
+          // Criar objeto UploadedImage
+          const uploadedImage: UploadedImage = {
+            id: crypto.randomUUID(),
+            original_name: file.name,
+            url: imageUrl,
+            file_size: file.size,
+            mime_type: file.type,
+            path: imageUrl
+          };
+
           // Adicionar à lista de arquivos enviados
-          setUploadedFiles(prev => [...prev, result]);
+          setUploadedFiles(prev => [...prev, uploadedImage]);
           
           toast.success(`${file.name} enviado com sucesso!`);
-          onUploadSuccess?.(result);
+          onUploadSuccess?.(uploadedImage);
 
           // Remover progresso após 2 segundos
           setTimeout(() => {

@@ -426,11 +426,13 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
                   <span>{image.width} × {image.height}px</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-gray-300">Criado em:</span>
-                <span>{new Date(image.created_at).toLocaleString('pt-BR')}</span>
-              </div>
-              {image.updated_at !== image.created_at && (
+              {image.created_at && (
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Criado em:</span>
+                  <span>{new Date(image.created_at).toLocaleString('pt-BR')}</span>
+                </div>
+              )}
+              {image.updated_at && image.updated_at !== image.created_at && (
                 <div className="flex justify-between">
                   <span className="text-gray-300">Atualizado em:</span>
                   <span>{new Date(image.updated_at).toLocaleString('pt-BR')}</span>

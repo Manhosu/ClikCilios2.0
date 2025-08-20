@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { useDataContext } from '../contexts/DataContext'
 import { clientesService, Cliente } from '../services/clientesService'
+import { toast } from 'react-hot-toast'
 import Button from '../components/Button'
+import ConfirmationCard from '../components/ConfirmationCard'
 
 const ClientesPage: React.FC = () => {
   const navigate = useNavigate()
@@ -14,6 +16,7 @@ const ClientesPage: React.FC = () => {
   const [modalAberto, setModalAberto] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null)
   const [busca, setBusca] = useState('')
+  const [confirmacaoExclusao, setConfirmacaoExclusao] = useState<{ isOpen: boolean; clienteId: string | null; clienteNome: string }>({ isOpen: false, clienteId: null, clienteNome: '' })
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -121,23 +124,32 @@ const ClientesPage: React.FC = () => {
     }
   }
 
-  const excluirCliente = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este cliente?')) return
+  const abrirConfirmacaoExclusao = (id: string, nome: string) => {
+    setConfirmacaoExclusao({ isOpen: true, clienteId: id, clienteNome: nome })
+  }
+
+  const fecharConfirmacaoExclusao = () => {
+    setConfirmacaoExclusao({ isOpen: false, clienteId: null, clienteNome: '' })
+  }
+
+  const confirmarExclusao = async () => {
+    if (!confirmacaoExclusao.clienteId) return
 
     try {
-      console.log('🗑️ Iniciando exclusão do cliente:', id)
+      console.log('🗑️ Iniciando exclusão do cliente:', confirmacaoExclusao.clienteId)
       console.log('👤 Usuário atual:', user)
       
-      const sucesso = await clientesService.excluir(id)
+      const sucesso = await clientesService.excluir(confirmacaoExclusao.clienteId)
       
       if (sucesso) {
         console.log('✅ Cliente excluído com sucesso, recarregando lista...')
         decrementClientes()
         await carregarClientes()
-        alert('Cliente excluído com sucesso!')
+        fecharConfirmacaoExclusao()
+        toast.success('Cliente excluído com sucesso!')
       } else {
         console.warn('⚠️ Cliente não foi excluído')
-        alert('Cliente não encontrado ou você não tem permissão para excluí-lo.')
+        toast.error('Cliente não encontrado ou você não tem permissão para excluí-lo.')
       }
     } catch (error: any) {
       console.error('❌ Erro ao excluir cliente:', error)
@@ -152,7 +164,7 @@ const ClientesPage: React.FC = () => {
         mensagem = 'Sua sessão expirou. Faça login novamente.'
       }
       
-      alert(mensagem)
+      toast.error(mensagem)
     }
   }
 
@@ -285,7 +297,7 @@ const ClientesPage: React.FC = () => {
                         e.preventDefault()
                         e.stopPropagation()
                         console.log('🗑️ Botão de exclusão clicado para cliente:', cliente.id)
-                        excluirCliente(cliente.id)
+                        abrirConfirmacaoExclusao(cliente.id, cliente.nome)
                       }}
                       className="text-red-500 hover:text-red-700 hover:scale-110 transition-all p-1"
                       title="Excluir"
@@ -428,6 +440,19 @@ const ClientesPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Card de Confirmação de Exclusão */}
+        <ConfirmationCard
+          isOpen={confirmacaoExclusao.isOpen}
+          title="Excluir Cliente"
+          message={`Tem certeza que deseja excluir a cliente ${confirmacaoExclusao.clienteNome}? Esta ação não pode ser desfeita.`}
+          confirmText="Sim, excluir"
+          cancelText="Cancelar"
+          onConfirm={confirmarExclusao}
+          onCancel={fecharConfirmacaoExclusao}
+          type="danger"
+          icon="🗑️"
+        />
       </div>
     </div>
   )

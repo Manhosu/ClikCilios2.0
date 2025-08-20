@@ -89,7 +89,7 @@ export const useAuth = () => {
         const storageTimeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
             reject(new Error('Timeout na verificação do storage'))
-          }, 3000) // 3 segundos
+          }, 2000) // 2 segundos
         })
         
         await Promise.race([storagePromise, storageTimeoutPromise])
@@ -123,7 +123,7 @@ export const useAuth = () => {
         const storageTimeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
             reject(new Error('Timeout na verificação do storage (fallback)'))
-          }, 3000) // 3 segundos
+          }, 2000) // 2 segundos
         })
         
         await Promise.race([storagePromise, storageTimeoutPromise])
@@ -147,7 +147,7 @@ export const useAuth = () => {
         const timeoutPromise = new Promise((_, reject) => {
           initTimeout = setTimeout(() => {
             reject(new Error('Timeout na inicialização da autenticação'))
-          }, 10000) // 10 segundos
+          }, 5000) // 5 segundos
         })
         
         const authPromise = supabase.auth.getSession()

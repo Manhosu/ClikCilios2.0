@@ -43,7 +43,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<ImageListResponse['pagination'] | null>(null);
-  const [directoryStats, setDirectoryStats] = useState<ImageListResponse['directoryStats']>(null);
+  const [directoryStats] = useState<ImageListResponse['directoryStats']>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Carregar imagens
@@ -54,16 +54,35 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       setLoading(true);
       setError(null);
       
-      const response = await imagensService.listarViaAPI({
-        page,
-        limit: 20,
-        sortBy: sortField,
-        sortOrder
+      // Usar imageApiService que agora conecta diretamente ao Storage
+      const images = await imagensService.listar(user.id);
+      
+      // Aplicar busca local se tiver termo
+      const filteredImages = searchTerm 
+        ? images.filter(img => 
+            img.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            img.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        : images;
+      
+      // Aplicar ordenação
+      filteredImages.sort((a, b) => {
+        const aValue = a[sortField] || '';
+        const bValue = b[sortField] || '';
+        const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        return sortOrder === 'desc' ? -comparison : comparison;
       });
 
-      setImages(response.images);
-      setPagination(response.pagination);
-      setDirectoryStats(response.directoryStats);
+      setImages(filteredImages);
+      // Simular paginação local
+      setPagination({
+        currentPage: page,
+        totalPages: Math.ceil(filteredImages.length / 20),
+        totalItems: filteredImages.length,
+        itemsPerPage: 20,
+        hasNextPage: page < Math.ceil(filteredImages.length / 20),
+        hasPrevPage: page > 1
+      });
       setCurrentPage(page);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar imagens';
@@ -116,26 +135,31 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       setIsDeleting(true);
       const imageIds = Array.from(selectedImages);
       
-      const result = await imagensService.deletarViaAPI(imageIds);
+      // Deletar imagens uma por uma usando o novo método
+      let deletedCount = 0;
       
-      if (result.success) {
-        toast.success(result.message);
+      for (const imageId of imageIds) {
+        if (!user?.id) continue;
         
-        // Remover imagens deletadas da lista
-        setImages(prev => prev.filter(img => !result.data.deleted_images.includes(img.id)));
+        const result = await imagensService.excluirDoStorage(imageId, user.id);
         
+        if (result.success) {
+          deletedCount++;
+          // Remover da lista local
+          setImages(prev => prev.filter(img => img.id !== imageId));
+          // Notificar callback
+          onImageDelete?.(imageId);
+        }
+      }
+      
+      if (deletedCount > 0) {
+        toast.success(`${deletedCount} imagem(ns) deletada(s) com sucesso`);
         // Limpar seleção
         clearSelection();
-        
-        // Notificar callback
-        result.data.deleted_images.forEach(imageId => {
-          onImageDelete?.(imageId);
-        });
-        
-        // Recarregar para atualizar estatísticas
+        // Recarregar para atualizar
         await loadImages(currentPage);
       } else {
-        toast.error(result.message);
+        toast.error('Erro ao deletar imagens');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao deletar imagens';
@@ -152,7 +176,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
     try {
       setIsDeleting(true);
-      const result = await imagensService.deletarViaAPI(imageId);
+      
+      if (!user?.id) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+      
+      const result = await imagensService.excluirDoStorage(imageId, user.id);
       
       if (result.success) {
         toast.success('Imagem deletada com sucesso');
@@ -359,7 +389,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                   {/* Imagem */}
                   <div className="aspect-square bg-gray-100 overflow-hidden">
                     <img
-                      src={imagensService.getImageUrl(image.id)}
+                      src={image.url}
                       alt={image.original_name || image.nome || 'Imagem sem nome'}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       onClick={() => onImageSelect?.(image)}
@@ -424,7 +454,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                     {/* Thumbnail */}
                     <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                       <img
-                        src={imagensService.getImageUrl(image.id)}
+                        src={image.url}
                         alt={image.original_name || image.nome || 'Imagem sem nome'}
                         className="w-full h-full object-cover"
                       />

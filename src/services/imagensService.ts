@@ -1,38 +1,9 @@
 import { supabase } from '../lib/supabase'
+import { authClient } from '../lib/authClient'
 import { generateId } from '../utils/generateId'
 import { v4 as uuidv4 } from 'uuid'
+import { API_BASE_URL } from '../config/api'
 // Force update to trigger Vite recompilation
-
-// Função para obter token de autenticação
-async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('❌ Erro ao obter sessão:', error.message);
-      // Tentar renovar a sessão
-      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-      
-      if (refreshError) {
-        console.error('❌ Erro ao renovar token:', refreshError.message);
-        return null;
-      }
-      
-      console.log('✅ Token renovado com sucesso');
-      return refreshedSession?.access_token || null;
-    }
-    
-    if (!session?.access_token) {
-      console.warn('⚠️ Nenhum token de acesso encontrado');
-      return null;
-    }
-    
-    return session.access_token;
-  } catch (error) {
-    console.error('❌ Erro crítico ao obter token:', error);
-    return null;
-  }
-}
 
 export interface ImagemCliente {
   id: string
@@ -42,6 +13,7 @@ export interface ImagemCliente {
   url: string
   tipo: 'antes' | 'depois' | 'processo'
   descricao?: string
+  nome_arquivo?: string
   filename?: string
   original_name?: string
   file_size?: number
@@ -49,6 +21,7 @@ export interface ImagemCliente {
   width?: number
   height?: number
   storage_path?: string
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed'
   created_at: string
   updated_at?: string
 }
@@ -173,37 +146,181 @@ export const imagensService = {
     }
   },
 
-  async salvarViaAPI(dadosImagem: Omit<ImagemCliente, 'id' | 'created_at' | 'user_id'>): Promise<ImagemCliente> {
+
+  /**
+   * Lista imagens do Supabase Storage para o usuário
+   */
+  async listarDoStorage(userId: string): Promise<{ success: boolean; data: ImagemCliente[] }> {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Token de autenticação não encontrado');
-      }
-
-      const response = await fetch('/api/save-client-image', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dadosImagem)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
+      console.log('🔄 [listarDoStorage] Listando imagens do Storage para usuário:', userId);
       
-      if (!result.success) {
-        throw new Error(result.error || 'Falha ao salvar imagem');
+      // Listar arquivos do bucket minhas-imagens
+      const { data: files, error: storageError } = await supabase.storage
+        .from('minhas-imagens')
+        .list(userId, {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+      if (storageError) {
+        console.error('❌ [listarDoStorage] Erro ao listar do Storage:', storageError);
+        return { success: false, data: [] };
       }
 
-      return result.data;
+      if (!files || files.length === 0) {
+        console.log('📂 [listarDoStorage] Nenhuma imagem encontrada no Storage');
+        return { success: true, data: [] };
+      }
+
+      // Buscar metadados das imagens no banco
+      const { data: imagensDB, error: dbError } = await supabase
+        .from('imagens_clientes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (dbError) {
+        console.error('❌ [listarDoStorage] Erro ao buscar metadados:', dbError);
+        return { success: false, data: [] };
+      }
+
+      // Combinar dados do Storage com metadados do banco
+      const imagesWithUrls: ImagemCliente[] = [];
+      
+      for (const file of files) {
+        if (file.name === '.emptyFolderPlaceholder') continue;
+        
+        const filePath = `${userId}/${file.name}`;
+        const { data: { publicUrl } } = supabase.storage
+          .from('minhas-imagens')
+          .getPublicUrl(filePath);
+
+        // Buscar metadados do banco
+        const dbImage = imagensDB?.find(img => 
+          img.filename === file.name || 
+          img.storage_path === filePath
+        );
+
+        const imageData: ImagemCliente = {
+          id: dbImage?.id || uuidv4(),
+          cliente_id: dbImage?.cliente_id || 'default',
+          user_id: userId,
+          nome: dbImage?.nome || file.name,
+          url: publicUrl,
+          tipo: dbImage?.tipo || 'depois',
+          descricao: dbImage?.descricao,
+          filename: file.name,
+          original_name: dbImage?.original_name || file.name,
+          file_size: file.metadata?.size || 0,
+          mime_type: file.metadata?.mimetype || 'image/jpeg',
+          width: dbImage?.width,
+          height: dbImage?.height,
+          storage_path: filePath,
+          processing_status: dbImage?.processing_status || 'completed',
+          created_at: dbImage?.created_at || file.created_at || new Date().toISOString(),
+          updated_at: dbImage?.updated_at || file.updated_at
+        };
+        
+        imagesWithUrls.push(imageData);
+      }
+
+      console.log(`✅ [listarDoStorage] ${imagesWithUrls.length} imagens carregadas do Storage`);
+      return { success: true, data: imagesWithUrls };
     } catch (error) {
-      console.error('Erro ao salvar imagem via API:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao salvar imagem');
+      console.error('❌ [listarDoStorage] Erro completo:', error);
+      return { success: false, data: [] };
+    }
+  },
+
+  /**
+   * Exclui uma imagem do Storage e do banco
+   */
+  async excluirDoStorage(imageId: string, userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🔄 [excluirDoStorage] Excluindo imagem:', imageId);
+      
+      // Buscar dados da imagem no banco
+      const { data: imagemDB, error: dbError } = await supabase
+        .from('imagens_clientes')
+        .select('*')
+        .eq('id', imageId)
+        .eq('user_id', userId)
+        .single();
+
+      if (dbError || !imagemDB) {
+        console.error('❌ [excluirDoStorage] Imagem não encontrada no banco:', dbError);
+        return { success: false, message: 'Imagem não encontrada' };
+      }
+
+      // Excluir do Storage se tiver storage_path
+      if (imagemDB.storage_path) {
+        const { error: storageError } = await supabase.storage
+          .from('minhas-imagens')
+          .remove([imagemDB.storage_path]);
+
+        if (storageError) {
+          console.error('❌ [excluirDoStorage] Erro ao excluir do Storage:', storageError);
+          // Continua mesmo com erro no Storage para limpar banco
+        }
+      }
+
+      // Excluir do banco
+      const { error: deleteError } = await supabase
+        .from('imagens_clientes')
+        .delete()
+        .eq('id', imageId)
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        console.error('❌ [excluirDoStorage] Erro ao excluir do banco:', deleteError);
+        return { success: false, message: 'Erro ao excluir imagem do banco' };
+      }
+
+      console.log('✅ [excluirDoStorage] Imagem excluída com sucesso');
+      return { success: true, message: 'Imagem excluída com sucesso' };
+    } catch (error) {
+      console.error('❌ [excluirDoStorage] Erro completo:', error);
+      return { success: false, message: 'Erro interno ao excluir imagem' };
+    }
+  },
+
+  /**
+   * Verifica se o bucket 'minhas-imagens' existe e está acessível
+   */
+  async verificarBucket(): Promise<{ exists: boolean; error?: string }> {
+    try {
+      console.log('[ImagensService] Verificando existência do bucket minhas-imagens...');
+      
+      // Tentar listar o bucket para verificar se existe e está acessível
+      const { error } = await supabase.storage
+        .from('minhas-imagens')
+        .list('', { limit: 1 });
+
+      if (error) {
+        console.error('[ImagensService] Erro ao verificar bucket:', error);
+        
+        if (error.message && error.message.toLowerCase().includes('bucket')) {
+          return { 
+            exists: false, 
+            error: 'Bucket "minhas-imagens" não encontrado. Precisa ser criado no Dashboard do Supabase.' 
+          };
+        } else {
+          return { 
+            exists: false, 
+            error: `Erro ao acessar bucket: ${error.message}` 
+          };
+        }
+      }
+
+      console.log('[ImagensService] ✅ Bucket minhas-imagens verificado com sucesso');
+      return { exists: true };
+    } catch (error) {
+      console.error('[ImagensService] Erro na verificação do bucket:', error);
+      return { 
+        exists: false, 
+        error: error instanceof Error ? error.message : 'Erro desconhecido ao verificar bucket' 
+      };
     }
   },
 
@@ -211,35 +328,138 @@ export const imagensService = {
    * Faz upload de uma imagem diretamente para o Supabase Storage.
    * @param file O arquivo de imagem a ser enviado.
    * @param userId O ID do usuário para organizar os arquivos.
-   * @returns A URL pública da imagem salva.
+   * @returns Objeto com URL pública e metadados da imagem.
    */
-  async uploadToStorage(file: File, userId: string): Promise<string> {
+  async uploadToStorage(file: File, userId: string): Promise<{
+    publicUrl: string;
+    metadata: {
+      width: number;
+      height: number;
+      file_size: number;
+      mime_type: string;
+      original_name: string;
+      filename: string;
+      storage_path: string;
+    };
+  }> {
+    console.log(`[ImagensService] Iniciando upload para usuário: ${userId}`);
+    
     if (!userId) {
+      console.error('[ImagensService] ID do usuário não fornecido');
       throw new Error('O ID do usuário é necessário para o upload.');
+    }
+
+    // Verificar se o bucket existe antes do upload
+    const bucketCheck = await this.verificarBucket();
+    if (!bucketCheck.exists) {
+      console.error('[ImagensService] Bucket não existe ou não está acessível');
+      throw new Error(bucketCheck.error || 'Bucket não está disponível');
+    }
+
+    // Validar arquivo
+    const validation = this.validateImageFile(file);
+    if (!validation.valid) {
+      console.error(`[ImagensService] Validação de arquivo falhou: ${validation.error}`);
+      throw new Error(validation.error);
+    }
+
+    // Extrair metadados
+    let metadata;
+    try {
+      metadata = await this.extractImageMetadata(file);
+      console.log(`[ImagensService] Metadados extraídos: ${metadata.width}x${metadata.height}, ${metadata.file_size} bytes`);
+    } catch (error) {
+      console.error('[ImagensService] Erro ao extrair metadados:', error);
+      throw new Error('Falha ao processar metadados da imagem');
+    }
+
+    // Validar metadados
+    const metadataValidation = this.validateImageMetadata(metadata);
+    if (!metadataValidation.valid) {
+      console.error(`[ImagensService] Validação de metadados falhou: ${metadataValidation.error}`);
+      throw new Error(metadataValidation.error);
     }
 
     const fileExtension = file.name.split('.').pop();
     const fileName = `${uuidv4()}.${fileExtension}`;
     const filePath = `${userId}/${fileName}`;
 
+    console.log(`[ImagensService] Fazendo upload para: ${filePath}`);
+
     const { data, error } = await supabase.storage
-      .from('mcp')
+      .from('minhas-imagens')
       .upload(filePath, file);
 
     if (error) {
-      console.error('Erro no upload para o Supabase Storage:', error);
-      throw new Error(`Falha no upload da imagem: ${error.message}`);
+      console.error('[ImagensService] Erro no upload para o Supabase Storage:', error);
+      
+      // Tratar erros específicos
+      if (error.message && error.message.toLowerCase().includes('bucket')) {
+        throw new Error(`Bucket não encontrado: O bucket 'minhas-imagens' precisa ser criado no Supabase Storage. Verifique a configuração no Dashboard.`);
+      } else if (error.message && error.message.toLowerCase().includes('policy')) {
+        throw new Error(`Erro de permissão: Políticas RLS não configuradas para o bucket 'minhas-imagens'. Verifique as permissões no Dashboard.`);
+      } else if (error.message && error.message.toLowerCase().includes('size')) {
+        throw new Error(`Arquivo muito grande: O limite é de 10MB. Reduza o tamanho da imagem.`);
+      } else if (error.message && error.message.toLowerCase().includes('type')) {
+        throw new Error(`Tipo de arquivo não permitido: Use apenas JPEG, PNG, WebP ou GIF.`);
+      } else {
+        throw new Error(`Falha no upload da imagem: ${error.message}`);
+      }
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('mcp')
+      .from('minhas-imagens')
       .getPublicUrl(data.path);
 
     if (!publicUrl) {
+      console.error('[ImagensService] Não foi possível obter URL pública');
       throw new Error('Não foi possível obter a URL pública da imagem.');
     }
 
-    return publicUrl;
+    console.log(`[ImagensService] Upload concluído com sucesso: ${publicUrl}`);
+
+    return {
+      publicUrl,
+      metadata: {
+        ...metadata,
+        filename: fileName,
+        storage_path: filePath
+      }
+    };
+  },
+
+  /**
+   * Extrai metadados de uma imagem
+   */
+  async extractImageMetadata(file: File): Promise<{
+    width: number;
+    height: number;
+    file_size: number;
+    mime_type: string;
+    original_name: string;
+  }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve({
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+          file_size: file.size,
+          mime_type: file.type,
+          original_name: file.name
+        });
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Não foi possível carregar a imagem para extrair metadados'));
+      };
+      
+      img.src = url;
+    });
   },
 
   /**
@@ -248,6 +468,10 @@ export const imagensService = {
   validateImageFile(file: File, options?: {
     maxSize?: number;
     allowedTypes?: string[];
+    minWidth?: number;
+    minHeight?: number;
+    maxWidth?: number;
+    maxHeight?: number;
   }): { valid: boolean; error?: string } {
     const maxSize = options?.maxSize || 10 * 1024 * 1024; // 10MB
     const allowedTypes = options?.allowedTypes || [
@@ -270,6 +494,58 @@ export const imagensService = {
       return {
         valid: false,
         error: `Arquivo muito grande. Tamanho máximo: ${maxSizeMB}MB`
+      };
+    }
+
+    if (file.size === 0) {
+      return {
+        valid: false,
+        error: 'Arquivo vazio ou corrompido'
+      };
+    }
+
+    return { valid: true };
+  },
+
+  /**
+   * Valida metadados de imagem extraídos
+   */
+  validateImageMetadata(metadata: {
+    width: number;
+    height: number;
+    file_size: number;
+  }, options?: {
+    minWidth?: number;
+    minHeight?: number;
+    maxWidth?: number;
+    maxHeight?: number;
+  }): { valid: boolean; error?: string } {
+    const { width, height, file_size } = metadata;
+    const {
+      minWidth = 50,
+      minHeight = 50,
+      maxWidth = 8000,
+      maxHeight = 8000
+    } = options || {};
+
+    if (width < minWidth || height < minHeight) {
+      return {
+        valid: false,
+        error: `Imagem muito pequena. Mínimo: ${minWidth}x${minHeight}px`
+      };
+    }
+
+    if (width > maxWidth || height > maxHeight) {
+      return {
+        valid: false,
+        error: `Imagem muito grande. Máximo: ${maxWidth}x${maxHeight}px`
+      };
+    }
+
+    if (file_size <= 0) {
+      return {
+        valid: false,
+        error: 'Tamanho de arquivo inválido'
       };
     }
 
@@ -331,7 +607,7 @@ export const imagensService = {
     height?: number;
     quality?: number;
   }): string {
-    const url = new URL(`/api/serve-image`, window.location.origin);
+    const url = new URL(`/api/serve-image`, API_BASE_URL);
     url.searchParams.set('imageId', imageId);
     
     if (params?.width) {
@@ -349,106 +625,98 @@ export const imagensService = {
     return url.toString();
   },
 
-  /**
-   * Lista imagens do usuário via API
-   */
-  async listarViaAPI({
-    page = 1,
-    limit = 20,
-    sortBy = 'created_at',
-    sortOrder = 'desc'
-  }: {
-    page?: number;
-    limit?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  } = {}): Promise<ImageListResponse> {
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Token de autenticação não encontrado');
-      }
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        sortBy,
-        sortOrder
-      });
 
-      const response = await fetch(`/api/list-images?${params}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
-      }
 
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Falha ao listar imagens');
-      }
 
-      return result.data;
-    } catch (error) {
-      console.error('Erro ao listar imagens via API:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao listar imagens');
-    }
-  },
 
   /**
-   * Deleta uma ou múltiplas imagens
+   * Salva imagem no Supabase Storage usando dados base64
    */
-  async deletarViaAPI(imageIds: string | string[]): Promise<{
-    success: boolean;
-    message: string;
-    data: {
-      total_requested: number;
-      successful_deletions: number;
-      failed_deletions: number;
-      deleted_images: string[];
-      failed_images: string[];
-      errors: { [key: string]: string };
-    };
-  }> {
+  async salvarNoSupabase(imageData: {
+    nome: string;
+    base64Data: string;
+    tipo: string;
+    descricao?: string;
+    clienteId?: string;
+  }): Promise<{ success: boolean; url?: string; imagemId?: string; error?: string; details?: any }> {
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        throw new Error('Token de autenticação não encontrado');
-      }
-
-      const ids = Array.isArray(imageIds) ? imageIds : [imageIds];
+      console.log('🔄 [salvarNoSupabase] Iniciando salvamento no Supabase Storage...');
       
-      const params = new URLSearchParams();
-      if (ids.length === 1) {
-        params.append('imageId', ids[0]);
-      } else {
-        params.append('imageIds', JSON.stringify(ids));
+      if (!authClient.isAuthenticated()) {
+        console.error('❌ [salvarNoSupabase] Usuário não autenticado');
+        throw new Error('Usuário não autenticado - faça login novamente');
       }
 
-      const response = await fetch(`/api/delete-image?${params}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      console.log('✅ [salvarNoSupabase] Usuário autenticado, obtendo dados...');
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+      // Obter dados do usuário
+      const user = await authClient.getCurrentUser();
+      if (!user?.id) {
+        throw new Error('Dados do usuário não disponíveis');
       }
 
-      return await response.json();
+      // Converter base64 para Blob
+      const base64WithoutPrefix = imageData.base64Data.replace(/^data:image\/[a-z]+;base64,/, '');
+      const byteCharacters = atob(base64WithoutPrefix);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      
+      // Determinar tipo MIME
+      const mimeType = imageData.base64Data.match(/^data:([^;]+);base64,/)?.[1] || 'image/jpeg';
+      const blob = new Blob([byteArray], { type: mimeType });
+      
+      // Criar File object
+      const fileExtension = mimeType.split('/')[1] || 'jpg';
+      const fileName = `${imageData.nome.replace(/\.[^/.]+$/, '')}.${fileExtension}`;
+      const file = new File([blob], fileName, { type: mimeType });
+
+      console.log('🔄 [salvarNoSupabase] Fazendo upload para Storage...');
+
+      // Upload para Supabase Storage
+      const uploadResult = await this.uploadToStorage(file, user.id);
+      
+      console.log('✅ [salvarNoSupabase] Upload concluído, salvando metadados...');
+
+      // Salvar metadados no banco
+      const imagemData: Omit<ImagemCliente, 'id' | 'created_at'> = {
+        cliente_id: imageData.clienteId || 'default',
+        user_id: user.id,
+        nome: imageData.nome,
+        url: uploadResult.publicUrl,
+        tipo: imageData.tipo as 'antes' | 'depois' | 'processo',
+        descricao: imageData.descricao,
+        nome_arquivo: uploadResult.metadata.filename,
+        filename: uploadResult.metadata.filename,
+        original_name: uploadResult.metadata.original_name,
+        file_size: uploadResult.metadata.file_size,
+        mime_type: uploadResult.metadata.mime_type,
+        width: uploadResult.metadata.width,
+        height: uploadResult.metadata.height,
+        storage_path: uploadResult.metadata.storage_path,
+        processing_status: 'completed'
+      };
+
+      const savedImage = await this.criar(imagemData);
+
+      console.log('✅ [salvarNoSupabase] Imagem salva com sucesso:', savedImage.id);
+      
+      return {
+        success: true,
+        url: uploadResult.publicUrl,
+        imagemId: savedImage.id
+      };
     } catch (error) {
-      console.error('Erro ao deletar imagens via API:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao deletar imagens');
+      console.error('❌ [salvarNoSupabase] Erro completo:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido ao salvar imagem',
+        details: error
+      };
     }
   }
 }

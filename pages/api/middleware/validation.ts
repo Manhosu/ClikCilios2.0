@@ -3,9 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 import formidable from 'formidable';
 import path from 'path';
 
-// Configuração do Supabase
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// Configuração do Supabase com validação detalhada
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Validar se as variáveis de ambiente estão configuradas
+if (!supabaseUrl) {
+  console.error('❌ [Validation] SUPABASE_URL não configurada');
+  throw new Error('Configuração do Supabase incompleta - URL não encontrada');
+}
+
+if (!supabaseServiceKey) {
+  console.error('❌ [Validation] SUPABASE_SERVICE_ROLE_KEY não configurada');
+  throw new Error('Configuração do Supabase incompleta - Service Role Key não encontrada');
+}
+
+console.log('✅ [Validation] Configuração do Supabase carregada com sucesso');
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Tipos de erro
@@ -69,26 +82,38 @@ export const VALIDATION_CONFIG = {
 
 // Função para validar autenticação
 export async function validateAuth(req: NextApiRequest): Promise<{ user: any; userId: string }> {
+  console.log('🔍 [validateAuth] Iniciando validação de autenticação');
+  
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('❌ [validateAuth] Token de acesso não fornecido ou formato inválido');
     throw new AuthenticationError('Token de acesso não fornecido');
   }
 
   const token = authHeader.substring(7);
+  console.log('🔄 [validateAuth] Token extraído, validando com Supabase...');
   
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
-    if (error || !user) {
+    if (error) {
+      console.error('❌ [validateAuth] Erro do Supabase:', error.message);
+      throw new AuthenticationError(`Token inválido: ${error.message}`);
+    }
+    
+    if (!user) {
+      console.error('❌ [validateAuth] Usuário não encontrado');
       throw new AuthenticationError('Token inválido ou expirado');
     }
 
+    console.log('✅ [validateAuth] Usuário autenticado:', user.email);
     return { user, userId: user.id };
   } catch (error) {
     if (error instanceof AuthenticationError) {
       throw error;
     }
+    console.error('❌ [validateAuth] Erro inesperado:', error);
     throw new AuthenticationError('Erro ao validar token de acesso');
   }
 }
@@ -281,42 +306,53 @@ export function validateSearchTerm(term: string): string {
 
 // Função para tratar erros da API
 export function handleApiError(error: any, res: NextApiResponse) {
-  console.error('Erro na API:', error);
+  console.error('❌ [handleApiError] Erro na API:', error);
 
   if (error instanceof ValidationError) {
+    console.log('🔍 [handleApiError] Erro de validação:', error.message);
     return res.status(400).json({
       success: false,
       error: error.message,
-      field: error.field
+      field: error.field,
+      type: 'validation_error'
     });
   }
 
   if (error instanceof AuthenticationError) {
+    console.log('🔍 [handleApiError] Erro de autenticação:', error.message);
     return res.status(401).json({
       success: false,
-      error: error.message
+      error: error.message,
+      type: 'authentication_error'
     });
   }
 
   if (error instanceof AuthorizationError) {
+    console.log('🔍 [handleApiError] Erro de autorização:', error.message);
     return res.status(403).json({
       success: false,
-      error: error.message
+      error: error.message,
+      type: 'authorization_error'
     });
   }
 
   if (error instanceof FileValidationError) {
+    console.log('🔍 [handleApiError] Erro de validação de arquivo:', error.message);
     return res.status(400).json({
       success: false,
       error: error.message,
-      filename: error.filename
+      filename: error.filename,
+      type: 'file_validation_error'
     });
   }
 
   // Erro genérico
+  console.error('🔍 [handleApiError] Erro interno não categorizado:', error);
   return res.status(500).json({
     success: false,
-    error: 'Erro interno do servidor'
+    error: 'Erro interno do servidor',
+    details: error.message || 'Erro desconhecido',
+    type: 'internal_server_error'
   });
 }
 

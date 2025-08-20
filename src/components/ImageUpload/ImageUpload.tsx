@@ -73,24 +73,37 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             }));
           }, 100);
 
-          const imageUrl = await imagensService.uploadToStorage(file, user?.id || '');
+          // Upload para bucket "minhas-imagens" do Supabase Storage
+          const uploadResult = await imagensService.uploadToStorage(file, user?.id || '');
           
           clearInterval(progressInterval);
           setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
 
-          // Criar objeto ImagemCliente
-          const uploadedImage: ImagemCliente = {
-            id: crypto.randomUUID(),
-            original_name: file.name,
-            nome: file.name,
-            url: imageUrl,
-            file_size: file.size,
-            mime_type: file.type,
-            storage_path: imageUrl,
-            created_at: new Date().toISOString(),
-            cliente_id: 'temp',
+          // Salvar metadados no banco de dados
+          const imagemData = {
+            cliente_id: '00000000-0000-0000-0000-000000000000', // Cliente padrão
             user_id: user?.id || '',
-            tipo: 'antes'
+            nome: uploadResult.metadata.original_name,
+            url: uploadResult.publicUrl,
+            tipo: 'antes' as 'antes' | 'depois' | 'processo',
+            descricao: 'Imagem enviada via upload',
+            filename: uploadResult.metadata.filename,
+            original_name: uploadResult.metadata.original_name,
+            file_size: uploadResult.metadata.file_size,
+            mime_type: uploadResult.metadata.mime_type,
+            width: uploadResult.metadata.width,
+            height: uploadResult.metadata.height,
+            storage_path: uploadResult.metadata.storage_path,
+            processing_status: 'completed' as 'pending' | 'processing' | 'completed' | 'failed'
+          };
+
+          // Salvar no banco
+          const savedImage = await imagensService.criar(imagemData);
+
+          // Criar objeto para UI
+          const uploadedImage: ImagemCliente = {
+            ...savedImage,
+            nome_arquivo: uploadResult.metadata.filename
           };
 
           // Adicionar à lista de arquivos enviados
@@ -109,7 +122,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           }, 2000);
 
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Erro no upload';
+          const errorMessage = error instanceof Error ? error.message : 'Erro no upload para Supabase Storage';
+          console.error('❌ Erro no upload:', error);
           toast.error(`Erro ao enviar ${file.name}: ${errorMessage}`);
           onUploadError?.(errorMessage);
           

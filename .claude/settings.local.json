@@ -16,7 +16,10 @@
       "mcp__supabase-mcp__get_advisors",
       "mcp__supabase-mcp__apply_migration",
       "mcp__supabase-mcp__execute_sql",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(dir:*)",
+      "Bash(cmd /c:*)",
+      "Bash(timeout 10 npm run dev:client)"
     ],
     "deny": [],
     "ask": []

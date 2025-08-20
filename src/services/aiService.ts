@@ -160,7 +160,7 @@ const loadFaceApiModels = async (): Promise<boolean> => {
           faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
           faceapi.nets.faceLandmark68Net.loadFromUri('/models')
         ]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
       ])
       
       modelsLoaded = true
@@ -179,7 +179,7 @@ const loadFaceApiModels = async (): Promise<boolean> => {
             faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
             faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
           ]),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('CDN Timeout')), 10000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('CDN Timeout')), 30000))
         ])
         
         modelsLoaded = true

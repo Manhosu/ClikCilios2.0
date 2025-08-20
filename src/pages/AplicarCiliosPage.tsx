@@ -1,9 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
 import { imagensService } from '../services/imagensService'
-import { configuracoesService } from '../services/configuracoesService'
+
 import { useAuthContext } from '../hooks/useAuthContext'
+import { authClient } from '../lib/authClient'
 import Button from '../components/Button'
 import { toast } from 'react-hot-toast'
 
@@ -18,63 +19,14 @@ const AplicarCiliosPage = () => {
   const [progresso, setProgresso] = useState(0)
   const [resultado, setResultado] = useState<ProcessamentoIA | null>(null)
   const [erro, setErro] = useState<string>('')
-  const [autoSalvar, setAutoSalvar] = useState(true)
   const [salvandoImagem, setSalvandoImagem] = useState(false)
 
   
   const estilosCilios = getEstilosCilios()
 
-  // Carregar configurações do usuário
-  useEffect(() => {
-    const carregarConfiguracoes = async () => {
-      if (user?.id) {
-        try {
-          const config = await configuracoesService.obter(user.id)
-          setAutoSalvar(config.backup_automatico)
-        } catch (error) {
-          console.error('Erro ao carregar configurações:', error)
-        }
-      }
-    }
-    carregarConfiguracoes()
-  }, [user?.id])
+  // Configurações removidas pois não há mais salvamento automático
 
-  // Função para salvar imagem automaticamente
-  const salvarImagemAutomaticamente = async (resultado: ProcessamentoIA) => {
-    if (!autoSalvar || !user?.id || !resultado.imagemProcessada) return
-
-    try {
-      // Converter base64 para File
-      const response = await fetch(resultado.imagemProcessada)
-      const blob = await response.blob()
-      
-      const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
-      const nomeArquivo = `cilios-${estilo?.nome.toLowerCase().replace(/\s+/g, '-') || 'aplicados'}-${Date.now()}.jpg`
-      
-      const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
-      
-      // Fazer upload da imagem física para o Supabase
-      const publicUrl = await imagensService.uploadToStorage(file, user.id);
-      
-      // Gerar um UUID válido para cliente_id (cliente padrão)
-      const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
-      
-      // Salvar metadados na tabela imagens_clientes
-      await imagensService.salvarViaAPI({
-        cliente_id: clienteId,
-        nome: nomeArquivo,
-        url: publicUrl, // Usar a URL pública do Supabase
-        tipo: 'depois' as 'antes' | 'depois' | 'processo',
-        descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva automaticamente`
-      });
-      
-      console.log('✅ Imagem salva automaticamente no Supabase')
-      toast.success('✅ Imagem salva automaticamente!')
-    } catch (error) {
-      console.error('Erro ao salvar imagem automaticamente:', error)
-      toast.error('⚠️ Erro no salvamento automático')
-    }
-  }
+  // Função removida para evitar salvamento duplicado
 
   // Logs de debug removidos para produção
 
@@ -158,9 +110,6 @@ const AplicarCiliosPage = () => {
           // metadata: undefined,           // pode omitir
         }
         setResultado(resultadoProcessamento)
-        
-        // Salvar automaticamente se configurado
-        await salvarImagemAutomaticamente(resultadoProcessamento)
       }
       reader.readAsDataURL(blob)
 
@@ -195,7 +144,7 @@ const AplicarCiliosPage = () => {
     setProgresso(0)
   }
 
-  // Função para salvar imagem na galeria local
+  // Função para salvar imagem na galeria online (Supabase)
   const handleSalvarImagem = async () => {
     if (!resultado?.imagemProcessada || !user?.id) {
       toast.error('Erro: Imagem ou usuário não encontrado')
@@ -205,6 +154,15 @@ const AplicarCiliosPage = () => {
     setSalvandoImagem(true)
     
     try {
+      // Verificar autenticação antes de salvar
+      const isAuth = await authClient.isAuthenticated()
+      if (!isAuth) {
+        toast.error('Sessão expirada. Faça login novamente.')
+        setSalvandoImagem(false)
+        navigate('/login')
+        return
+      }
+
       // Converter base64 para File
       const response = await fetch(resultado.imagemProcessada)
       const blob = await response.blob()
@@ -214,31 +172,74 @@ const AplicarCiliosPage = () => {
       
       const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
       
-      // Fazer upload da imagem física para o Supabase
-      const publicUrl = await imagensService.uploadToStorage(file, user.id);
-      
-      // Gerar um UUID válido para cliente_id (cliente padrão)
-      const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
-      
-      // Salvar metadados na tabela imagens_clientes
-      await imagensService.salvarViaAPI({
-        cliente_id: clienteId,
-        nome: nomeArquivo,
-        url: publicUrl, // Usar a URL pública do Supabase
-        tipo: 'depois' as 'antes' | 'depois' | 'processo',
-        descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva manualmente`
-      });
-      
-      toast.success('✅ Imagem salva na galeria com sucesso!');
-      
-      // Opcional: navegar para a galeria
-      // navigate('/minhas-imagens')
+      // Salvar no Supabase Storage
+      try {
+        console.log('[AplicarCilios] Iniciando upload da imagem processada');
+        const uploadResult = await imagensService.uploadToStorage(file, user.id);
+        
+        console.log('[AplicarCilios] Upload concluído, salvando metadados:', {
+          url: uploadResult.publicUrl,
+          metadata: uploadResult.metadata
+        });
+        
+        // Gerar um UUID válido para cliente_id (cliente padrão)
+        const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
+        
+        // Salvar metadados na tabela imagens_clientes
+        const imagemData = {
+          cliente_id: clienteId,
+          user_id: user.id,
+          nome: uploadResult.metadata.original_name,
+          url: uploadResult.publicUrl,
+          tipo: 'depois' as 'antes' | 'depois' | 'processo',
+          descricao: `Imagem processada com estilo ${estilo?.nome || 'aplicado'} - Salva manualmente`,
+          filename: uploadResult.metadata.filename,
+          original_name: uploadResult.metadata.original_name,
+          file_size: uploadResult.metadata.file_size,
+          mime_type: uploadResult.metadata.mime_type,
+          width: uploadResult.metadata.width,
+          height: uploadResult.metadata.height,
+          storage_path: uploadResult.metadata.storage_path,
+          processing_status: 'completed' as 'pending' | 'processing' | 'completed' | 'failed'
+        };
+        
+        await imagensService.criar(imagemData);
+        
+        console.log('[AplicarCilios] Imagem salva com sucesso no Supabase Storage');
+        toast.success('✅ Imagem salva na galeria!');
+        
+        // Redirecionamento automático após salvamento
+        toast.success('✅ Imagem salva com sucesso!')
+        setTimeout(() => {
+          navigate('/minhas-imagens')
+        }, 1500)
+        
+      } catch (error) {
+        console.error('❌ Erro ao salvar no Supabase:', error)
+        toast.error('⚠️ Erro ao salvar na galeria')
+      } finally {
+        setSalvandoImagem(false)
+      }
       
     } catch (error) {
-      console.error('Erro ao salvar imagem:', error)
-      toast.error('Erro ao salvar imagem na galeria')
-    } finally {
+      console.error('❌ [handleSalvarImagem] Erro crítico:', error)
       setSalvandoImagem(false)
+      
+      // Verificar se é erro de autenticação
+      if (error instanceof Error) {
+        if (error.message.includes('autenticação') || error.message.includes('login')) {
+          toast.error('🔒 Sessão expirada - redirecionando para login...')
+          setTimeout(() => navigate('/login'), 2000)
+        } else if (error.message.includes('rede') || error.message.includes('connection')) {
+          toast.error('🌐 Erro de conexão - verifique sua internet')
+        } else if (error.message.includes('servidor')) {
+          toast.error('🖥️ Erro no servidor - tente novamente em alguns momentos')
+        } else {
+          toast.error(`❌ ${error.message}`)
+        }
+      } else {
+        toast.error('❌ Erro inesperado ao salvar imagem')
+      }
     }
   }
 
@@ -503,27 +504,21 @@ const AplicarCiliosPage = () => {
                         </div>
                       </div>
                     )}
-                    {resultado.metadata && (
-                      <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1 rounded-xl backdrop-blur-sm">
-                        ⭐ Qualidade: {resultado.metadata.qualidade}%
-                      </div>
-                    )}
+
                   </div>
                   
-                  {/* Informações do Processamento */}
+                  {/* Informações Simplificadas */}
                   <div className="text-sm text-gray-600 bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-2xl">
                     <p className="flex items-center mb-2">
                       <span className="text-primary-600 mr-2">💄</span>
-                      <strong>Estilo aplicado:</strong> 
+                      <strong>Cílio escolhido:</strong> 
                       <span className="ml-2">{estilosCilios.find(e => e.id === estiloSelecionado)?.nome}</span>
                     </p>
-                    {resultado.tempoProcessamento && (
-                      <p className="flex items-center">
-                        <span className="text-secondary-600 mr-2">⏱️</span>
-                        <strong>Tempo de processamento:</strong> 
-                        <span className="ml-2">{(resultado.tempoProcessamento / 1000).toFixed(1)}s</span>
-                      </p>
-                    )}
+                    <p className="flex items-center">
+                      <span className="text-secondary-600 mr-2">📅</span>
+                      <strong>Data de geração:</strong> 
+                      <span className="ml-2">{new Date().toLocaleDateString('pt-BR')}</span>
+                    </p>
                   </div>
 
                   {/* Botões de Ação */}

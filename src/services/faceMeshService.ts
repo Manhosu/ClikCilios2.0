@@ -123,13 +123,13 @@ export const detectFaceMeshLandmarks = async (
     // Processa a imagem
     faceMeshInstance.send({ image: imageElement })
 
-    // Timeout de 5 segundos
+    // Timeout de 15 segundos
     setTimeout(() => {
       if (!hasDetected) {
         console.warn('⏰ Timeout na detecção do MediaPipe Face Mesh')
         resolve(null)
       }
-    }, 5000)
+    }, 15000)
   })
 }
 

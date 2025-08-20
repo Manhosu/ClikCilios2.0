@@ -3,18 +3,25 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import { imageApiService, ImagemCliente } from '../services/imageApiService'
+
+import { toast } from 'react-hot-toast'
+
 import Button from '../components/Button'
+import ConfirmationCard from '../components/ConfirmationCard'
 
 const MinhasImagensPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, isLoading: userLoading } = useAuthContext()
   const [imagens, setImagens] = useState<ImagemCliente[]>([])
+  // Removido: imagensLocais - usando apenas Supabase
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroEstilo, setFiltroEstilo] = useState('')
   const [filtroCliente, setFiltroCliente] = useState('')
   const [imagemSelecionada, setImagemSelecionada] = useState<ImagemCliente | null>(null)
   const [modalAberto, setModalAberto] = useState(false)
+  const [confirmacaoExclusao, setConfirmacaoExclusao] = useState<{ isOpen: boolean; imagemId: string | null }>({ isOpen: false, imagemId: null })
+  // Removido: abaAtiva - usando apenas Supabase
 
   const estilos = [
     'Volume Fio a Fio D',
@@ -37,10 +44,11 @@ const MinhasImagensPage: React.FC = () => {
     }
   }, [user, userLoading])
 
-  // Atualizar dados quando a página ganhar foco ou quando localStorage mudar
+  // Atualizar dados quando a página ganhar foco
   useEffect(() => {
     const handleFocus = () => {
       if (user?.id && !loading) {
+        console.log('🔄 [MinhasImagens] Página ganhou foco - recarregando dados')
         carregarDados()
       }
     }
@@ -48,31 +56,45 @@ const MinhasImagensPage: React.FC = () => {
     const handleStorageChange = (e: StorageEvent) => {
       // Detectar mudanças nos dados de clientes ou imagens
       if ((e.key?.includes('ciliosclick_clientes') || e.key?.includes('ciliosclick_imagens')) && user?.id && !loading) {
+        console.log('🔄 [MinhasImagens] Storage mudou - recarregando dados')
+        carregarDados()
+      }
+    }
+    
+    const handleVisibilityChange = () => {
+      // Recarregar quando a página se torna visível novamente
+      if (!document.hidden && user?.id && !loading) {
+        console.log('🔄 [MinhasImagens] Página ficou visível - recarregando dados')
         carregarDados()
       }
     }
 
     window.addEventListener('focus', handleFocus)
     window.addEventListener('storage', handleStorageChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     
     return () => {
       window.removeEventListener('focus', handleFocus)
       window.removeEventListener('storage', handleStorageChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [user?.id, loading])
 
-  // Atualização automática a cada 30 segundos quando a página está visível
+  // Atualização automática a cada 10 segundos quando a página está visível
   useEffect(() => {
     if (!user?.id) return
 
     const interval = setInterval(() => {
       if (!document.hidden && !loading) {
+        console.log('🔄 [MinhasImagens] Refresh automático - recarregando dados')
         carregarDados()
       }
-    }, 30000) // 30 segundos
+    }, 10000) // 10 segundos para detectar novas imagens mais rapidamente
 
     return () => clearInterval(interval)
   }, [user?.id, loading])
+
+
 
   const carregarDados = async () => {
     try {
@@ -80,27 +102,28 @@ const MinhasImagensPage: React.FC = () => {
       
       if (!user?.id) {
         setImagens([])
+        // Removido: setImagensLocais - usando apenas Supabase
         setClientes([])
         return
       }
 
-      // Carregar imagens e clientes usando os serviços
+      // Carregar imagens do Supabase Storage e clientes usando os serviços
       const [imagensData, clientesData] = await Promise.all([
-        imageApiService.listar(),
+        imageApiService.listar(), // Agora usa Storage diretamente
         clientesService.listar(user.id)
       ])
 
       setImagens(imagensData)
       setClientes(clientesData)
       
-      console.log('📊 Dados carregados:', {
+      console.log('📊 Dados carregados do Supabase Storage:', {
         totalImagens: imagensData.length,
         totalClientes: clientesData.length,
         processadas: imagensData.filter(img => img.tipo === 'depois').length,
         tiposUnicos: new Set(imagensData.map(img => img.tipo)).size
       })
     } catch (error) {
-      console.error('Erro ao carregar dados:', error)
+      console.error('Erro ao carregar dados do Supabase:', error)
       setImagens([])
       setClientes([])
     } finally {
@@ -108,22 +131,32 @@ const MinhasImagensPage: React.FC = () => {
     }
   }
 
-  const excluirImagem = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta imagem?')) return
+  const abrirConfirmacaoExclusao = (id: string) => {
+    setConfirmacaoExclusao({ isOpen: true, imagemId: id })
+  }
+
+  const fecharConfirmacaoExclusao = () => {
+    setConfirmacaoExclusao({ isOpen: false, imagemId: null })
+  }
+
+  const confirmarExclusao = async () => {
+    if (!confirmacaoExclusao.imagemId) return
 
     try {
-      const sucesso = await imageApiService.excluir(id)
+      const sucesso = await imageApiService.excluir(confirmacaoExclusao.imagemId)
       if (sucesso) {
-        setImagens(prev => prev.filter(img => img.id !== id))
+        setImagens(prev => prev.filter(img => img.id !== confirmacaoExclusao.imagemId))
         setModalAberto(false)
+        fecharConfirmacaoExclusao()
         // Recarregar dados para atualizar contadores
         carregarDados()
+        toast.success('Imagem excluída com sucesso!')
       } else {
-        alert('Imagem não encontrada')
+        toast.error('Imagem não encontrada')
       }
     } catch (error) {
-      console.error('Erro ao excluir imagem:', error)
-      alert('Erro ao excluir imagem')
+      console.error('Erro ao excluir imagem do Storage:', error)
+      toast.error('Erro ao excluir imagem')
     }
   }
 
@@ -144,6 +177,22 @@ const MinhasImagensPage: React.FC = () => {
       minute: '2-digit'
     })
   }
+
+  // Função para extrair o estilo de cílio da descrição
+  const extrairEstiloCilio = (descricao: string | null | undefined) => {
+    if (!descricao) return 'Não especificado'
+    
+    // Procura por padrões como "estilo Volume Russo", "com estilo Clássico", etc.
+    const match = descricao.match(/(?:estilo|com estilo)\s+([^-]+)/i)
+    if (match) {
+      return match[1].trim()
+    }
+    
+    // Se não encontrar o padrão, retorna a descrição completa
+    return descricao
+  }
+
+
 
   if (loading || userLoading) {
     return (
@@ -185,6 +234,8 @@ const MinhasImagensPage: React.FC = () => {
             ✨ Nova Visualização
           </Button>
         </div>
+
+
 
         {/* Filtros */}
         {imagens.length > 0 && (
@@ -286,76 +337,77 @@ const MinhasImagensPage: React.FC = () => {
               className="shadow-elegant hover:scale-105 transition-transform"
             >
               ✨ Criar Nova Visualização
-            </Button>
-          </div>
-        ) : imagensFiltradas.length === 0 ? (
-          <div className="card-elegant p-12 text-center">
-            <div className="text-6xl mb-6">🔍</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Nenhuma imagem encontrada com os filtros aplicados
-            </h3>
-            <p className="text-gray-600 mb-8">
-              Tente ajustar os filtros ou limpar para ver todas as imagens
-            </p>
-            <button
-              onClick={() => {
-                setFiltroEstilo('')
-                setFiltroCliente('')
-              }}
-              className="text-primary-600 hover:text-primary-800 font-medium"
-            >
-              Limpar Filtros
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {imagensFiltradas.map((imagem) => (
-              <div
-                key={imagem.id}
-                className="card-interactive group cursor-pointer"
+              </Button>
+            </div>
+          ) : imagensFiltradas.length === 0 ? (
+            <div className="card-elegant p-12 text-center">
+              <div className="text-6xl mb-6">🔍</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                Nenhuma imagem encontrada com os filtros aplicados
+              </h3>
+              <p className="text-gray-600 mb-8">
+                Tente ajustar os filtros ou limpar para ver todas as imagens
+              </p>
+              <button
                 onClick={() => {
-                  setImagemSelecionada(imagem)
-                  setModalAberto(true)
+                  setFiltroEstilo('')
+                  setFiltroCliente('')
                 }}
+                className="text-primary-600 hover:text-primary-800 font-medium"
               >
-                <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl relative overflow-hidden mb-4">
-                  <img
-                    src={imagem.url}
-                    alt={imagem.nome}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                  {imagem.tipo && (
-                    <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-xl text-xs font-medium shadow-lg">
-                      {imagem.tipo}
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
-                    {imagem.nome}
-                  </h3>
-                  {imagem.descricao && (
-                    <p className="text-sm text-primary-600 flex items-center">
-                      <span className="mr-1">💄</span>
-                      {imagem.descricao}
+                Limpar Filtros
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {imagensFiltradas.map((imagem) => (
+                <div
+                  key={imagem.id}
+                  className="card-interactive group cursor-pointer"
+                  onClick={() => {
+                    setImagemSelecionada(imagem)
+                    setModalAberto(true)
+                  }}
+                >
+                  <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl relative overflow-hidden mb-4">
+                    <img
+                      src={imagem.url}
+                      alt={imagem.nome}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    {imagem.tipo && (
+                      <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-xl text-xs font-medium shadow-lg">
+                        {imagem.tipo}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
+                      {imagem.nome}
+                    </h3>
+                    {imagem.descricao && (
+                      <p className="text-sm text-primary-600 flex items-center">
+                        <span className="mr-1">💄</span>
+                        {imagem.descricao}
+                      </p>
+                    )}
+                    {imagem.cliente_id && (
+                      <p className="text-sm text-gray-600 flex items-center">
+                        <span className="text-secondary-500 mr-1">👤</span>
+                        {imagem.cliente_id}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 flex items-center">
+                      <span className="mr-1">📅</span>
+                      {new Date(imagem.created_at).toLocaleDateString('pt-BR')}
                     </p>
-                  )}
-                  {imagem.cliente_id && (
-                    <p className="text-sm text-gray-600 flex items-center">
-                      <span className="text-secondary-500 mr-1">👤</span>
-                      {imagem.cliente_id}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 flex items-center">
-                    <span className="mr-1">📅</span>
-                    {new Date(imagem.created_at).toLocaleDateString('pt-BR')}
-                  </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        }
 
         {/* Modal de Detalhes */}
         {modalAberto && imagemSelecionada && (
@@ -382,47 +434,33 @@ const MinhasImagensPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">📁 Nome do Arquivo</label>
-                      <p className="text-gray-900">{imagemSelecionada.nome}</p>
+                <div className="space-y-4">
+                  {/* Cílio Utilizado */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 flex items-center">
+                      <span className="mr-2">💄</span>
+                      Cílio Utilizado
+                    </label>
+                    <div className="bg-gradient-to-r from-primary-50 to-secondary-50 p-4 rounded-xl mt-2">
+                      <p className="text-primary-700 font-medium text-lg">
+                        {extrairEstiloCilio(imagemSelecionada.descricao)}
+                      </p>
                     </div>
-                    {imagemSelecionada.tipo && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">💄 Tipo</label>
-                        <p className="text-primary-600 font-medium">{imagemSelecionada.tipo}</p>
-                      </div>
-                    )}
-                    {imagemSelecionada.cliente_id && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">👤 Cliente</label>
-                        <p className="text-gray-900">{imagemSelecionada.cliente_id}</p>
-                      </div>
-                    )}
                   </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">📅 Data de Criação</label>
-                      <p className="text-gray-900">{formatarData(imagemSelecionada.created_at)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">🔄 Status</label>
-                      <p className={`font-medium ${imagemSelecionada.tipo === 'depois' ? 'text-green-600' : 'text-orange-600'}`}>
-                        {imagemSelecionada.tipo === 'depois' ? '✅ Processada' : '⏳ Original'}
+
+                  {/* Data de Geração */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 flex items-center">
+                      <span className="mr-2">📅</span>
+                      Data de Geração
+                    </label>
+                    <div className="bg-gray-50 p-4 rounded-xl mt-2">
+                      <p className="text-gray-900 font-medium">
+                        {formatarData(imagemSelecionada.created_at)}
                       </p>
                     </div>
                   </div>
                 </div>
-
-                {imagemSelecionada.descricao && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">📝 Descrição</label>
-                    <p className="text-gray-900 bg-gray-50 p-3 rounded-xl mt-1">
-                      {imagemSelecionada.descricao}
-                    </p>
-                  </div>
-                )}
 
                 <div className="flex gap-4 pt-4">
                   <Button
@@ -433,7 +471,7 @@ const MinhasImagensPage: React.FC = () => {
                     Fechar
                   </Button>
                   <Button
-                    onClick={() => excluirImagem(imagemSelecionada.id)}
+                    onClick={() => abrirConfirmacaoExclusao(imagemSelecionada.id)}
                     variant="secondary"
                     className="text-red-600 hover:text-red-700"
                   >
@@ -444,6 +482,19 @@ const MinhasImagensPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Card de Confirmação de Exclusão */}
+        <ConfirmationCard
+          isOpen={confirmacaoExclusao.isOpen}
+          title="Excluir Imagem"
+          message="Tem certeza que deseja excluir esta imagem? Esta ação não pode ser desfeita."
+          confirmText="Sim, excluir"
+          cancelText="Cancelar"
+          onConfirm={confirmarExclusao}
+          onCancel={fecharConfirmacaoExclusao}
+          type="danger"
+          icon="🗑️"
+        />
       </div>
     </div>
   )

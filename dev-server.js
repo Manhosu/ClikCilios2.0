@@ -11,7 +11,7 @@ dotenv.config({ path: '.env.local' });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 3003;
+const PORT = process.env.DEV_API_PORT || 3005;
 
 // Função para simular req/res do Next.js
 function createNextApiHandler(handler) {
@@ -148,6 +148,8 @@ async function loadListImagesHandler() {
   }
 }
 
+
+
 // Servidor HTTP simples
 const server = http.createServer(async (req, res) => {
   // CORS headers
@@ -229,6 +231,7 @@ const server = http.createServer(async (req, res) => {
         error: 'Erro ao carregar handler da API list-images' 
       }));
     }
+
   } else {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'application/json');
@@ -243,6 +246,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 Servidor de desenvolvimento rodando na porta ${PORT}`);
   console.log(`📡 API save-client-image disponível em http://localhost:${PORT}/api/save-client-image`);
+  console.log(`📡 API list-images disponível em http://localhost:${PORT}/api/list-images`);
 });
 
 server.on('error', (error) => {

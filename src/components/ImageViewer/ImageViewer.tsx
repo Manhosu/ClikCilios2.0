@@ -46,6 +46,39 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
   const [showImageInfo, setShowImageInfo] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [descricaoEditavel, setDescricaoEditavel] = useState('');
+  const [editandoDescricao, setEditandoDescricao] = useState(false);
+
+  // Função para extrair o estilo de cílio da descrição
+  const extrairEstiloCilio = (descricao: string | null | undefined) => {
+    if (!descricao) return 'Não especificado'
+    
+    // Procura por padrões como "estilo Volume Russo", "com estilo Clássico", etc.
+    const match = descricao.match(/(?:estilo|com estilo)\s+([^-]+)/i)
+    if (match) {
+      return match[1].trim()
+    }
+    
+    // Se não encontrar o padrão, retorna a descrição completa
+    return descricao
+  }
+
+  // Função para salvar a descrição editada
+  const salvarDescricao = async () => {
+    if (!image) return
+    
+    try {
+      await imagensService.atualizar(image.id, {
+        descricao: descricaoEditavel
+      })
+      
+      setEditandoDescricao(false)
+      toast.success('Descrição atualizada com sucesso!')
+    } catch (error) {
+      console.error('Erro ao atualizar descrição:', error)
+      toast.error('Erro ao atualizar descrição')
+    }
+  }
 
   // Reset transformations when image changes
   useEffect(() => {
@@ -54,6 +87,14 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     setPosition({ x: 0, y: 0 });
     setIsLoading(true);
     setHasError(false);
+  }, [image?.id]);
+
+  // Initialize editable description when image changes
+  useEffect(() => {
+    if (image) {
+      setDescricaoEditavel(image.descricao || '');
+      setEditandoDescricao(false);
+    }
   }, [image?.id]);
 
   // Keyboard shortcuts
@@ -187,7 +228,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
     if (!image) return;
 
     try {
-      const imageUrl = imagensService.getImageUrl(image.id);
+      // Usar URL direta do Supabase para download
+      const imageUrl = image.url;
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       
@@ -384,7 +426,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
           </div>
         ) : (
           <img
-            src={imagensService.getImageUrl(image.id)}
+            src={image.url}
             alt={image.original_name}
             className="max-w-none transition-transform duration-200 select-none"
             style={{
@@ -405,39 +447,89 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
       {/* Image info panel */}
       {showInfo && showImageInfo && (
         <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black to-transparent p-4">
-          <div className="bg-black bg-opacity-50 rounded-lg p-4 text-white max-w-md">
-            <h4 className="font-medium mb-3">Informações da Imagem</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-300">Nome:</span>
-                <span className="truncate ml-2" title={image.original_name}>{image.original_name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">Tamanho:</span>
-                <span>{imagensService.formatFileSize(image.file_size)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">Tipo:</span>
-                <span>{image.mime_type}</span>
-              </div>
-              {image.width && image.height && (
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Dimensões:</span>
-                  <span>{image.width} × {image.height}px</span>
+          <div className="bg-black bg-opacity-50 rounded-lg p-4 text-white max-w-lg">
+            <h4 className="font-medium mb-4 flex items-center">
+              <span className="mr-2">🖼️</span>
+              Informações da Imagem
+            </h4>
+            <div className="space-y-4 text-sm">
+              {/* Cílio Utilizado */}
+              <div>
+                <div className="flex items-center mb-2">
+                  <span className="text-yellow-300 mr-2">💄</span>
+                  <span className="text-gray-300 font-medium">Cílio Utilizado:</span>
                 </div>
-              )}
-              {image.created_at && (
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Criado em:</span>
-                  <span>{new Date(image.created_at).toLocaleString('pt-BR')}</span>
+                <div className="bg-white bg-opacity-10 rounded-lg p-2">
+                  <span className="text-yellow-200 font-medium">
+                    {extrairEstiloCilio(image.descricao)}
+                  </span>
                 </div>
-              )}
-              {image.updated_at && image.updated_at !== image.created_at && (
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Atualizado em:</span>
-                  <span>{new Date(image.updated_at).toLocaleString('pt-BR')}</span>
+              </div>
+
+              {/* Descrição Editável */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <span className="text-blue-300 mr-2">📝</span>
+                    <span className="text-gray-300 font-medium">Descrição:</span>
+                  </div>
+                  {!editandoDescricao && (
+                    <button
+                      onClick={() => setEditandoDescricao(true)}
+                      className="text-blue-300 hover:text-blue-200 text-xs font-medium px-2 py-1 bg-white bg-opacity-10 rounded"
+                    >
+                      ✏️ Editar
+                    </button>
+                  )}
                 </div>
-              )}
+                {editandoDescricao ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={descricaoEditavel}
+                      onChange={(e) => setDescricaoEditavel(e.target.value)}
+                      className="w-full p-2 bg-white bg-opacity-10 border border-white border-opacity-20 rounded text-white placeholder-gray-400 resize-none text-sm"
+                      rows={3}
+                      placeholder="Digite uma descrição para a imagem..."
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={salvarDescricao}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
+                      >
+                        ✅ Salvar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditandoDescricao(false)
+                          setDescricaoEditavel(image.descricao || '')
+                        }}
+                        className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs font-medium transition-colors"
+                      >
+                        ❌ Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white bg-opacity-10 rounded-lg p-2">
+                    <span className="text-gray-200">
+                      {image.descricao || 'Nenhuma descrição adicionada'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Data de Geração */}
+              <div>
+                <div className="flex items-center mb-2">
+                  <span className="text-green-300 mr-2">📅</span>
+                  <span className="text-gray-300 font-medium">Data de Geração:</span>
+                </div>
+                <div className="bg-white bg-opacity-10 rounded-lg p-2">
+                  <span className="text-green-200 font-medium">
+                    {image.created_at ? new Date(image.created_at).toLocaleString('pt-BR') : 'Não disponível'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

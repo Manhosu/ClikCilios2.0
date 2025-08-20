@@ -42,7 +42,7 @@ async function testImageUploadWithAuth() {
     console.log('\n🔑 2. Fazendo login...');
     const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
       email: 'teste@ciliosclick.com',
-      password: 'teste123'
+      password: '123456'
     });
     
     if (authError) {

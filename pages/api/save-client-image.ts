@@ -6,6 +6,7 @@ import {
   validateMethod,
   handleApiError
 } from './middleware/validation';
+import { imagensService } from '../../src/services/imagensService';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -113,14 +114,30 @@ const saveClientImageHandler = async (req: NextApiRequest, res: NextApiResponse)
     // Validar e extrair dados da imagem
     const imageData = validateImageData(req.body);
 
-    // Salvar imagem no banco
-    const savedImage = await saveClientImage(userId, imageData);
+    // Salvar imagem no Supabase Storage
+    const supabaseResult = await imagensService.salvarNoSupabase({
+      nome: imageData.nome,
+      base64Data: imageData.base64Data,
+      tipo: imageData.tipo,
+      descricao: imageData.descricao,
+      clienteId: imageData.clienteId
+    });
+
+    if (!supabaseResult.success) {
+      throw new Error(supabaseResult.error || 'Falha ao salvar imagem no Supabase');
+    }
 
     // Resposta de sucesso
     res.status(201).json({
       success: true,
-      message: 'Imagem do cliente salva com sucesso',
-      data: savedImage
+      message: 'Imagem do cliente salva com sucesso no Supabase',
+      data: {
+        id: supabaseResult.imagemId,
+        url: supabaseResult.url,
+        nome: imageData.nome,
+        tipo: imageData.tipo,
+        descricao: imageData.descricao
+      }
     });
 
   } catch (error) {

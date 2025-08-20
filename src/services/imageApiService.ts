@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { imagensService } from './imagensService';
 
 export interface ImagemCliente {
   id: string;
@@ -35,107 +35,106 @@ export interface ImageListResponse {
   };
 }
 
-// Função para obter token de autenticação
-async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('❌ Erro ao obter sessão:', error.message);
-      return null;
-    }
-    
-    if (!session?.access_token) {
-      console.warn('⚠️ Nenhum token de acesso encontrado');
-      return null;
-    }
-    
-    return session.access_token;
-  } catch (error) {
-    console.error('❌ Erro crítico ao obter token:', error);
-    return null;
-  }
-}
-
-// Serviço que usa a API list-images
+/**
+ * Serviço que usa o Supabase Storage diretamente
+ * Mantém a mesma interface para compatibilidade
+ */
 export const imageApiService = {
-  async listar(page: number = 1, limit: number = 50): Promise<ImagemCliente[]> {
+  /**
+   * Lista imagens do Supabase Storage
+   * @param page Número da página (não usado, mantido para compatibilidade)
+   * @param limit Limite de itens (não usado, mantido para compatibilidade)
+   * @returns Array de imagens ou array vazio em caso de erro
+   */
+  async listar(_page: number = 1, _limit: number = 50): Promise<ImagemCliente[]> {
     try {
-      const token = await getAuthToken();
-      
-      if (!token) {
+      // Obter userId do contexto - necessário para buscar do Storage
+      const userId = await this.getCurrentUserId();
+      if (!userId) {
         console.warn('⚠️ Usuário não autenticado');
         return [];
       }
 
-      const url = new URL('/api/list-images', window.location.origin);
-      url.searchParams.set('page', page.toString());
-      url.searchParams.set('limit', limit.toString());
-      url.searchParams.set('sort_field', 'created_at');
-      url.searchParams.set('sort_order', 'desc');
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.warn('⚠️ Token expirado ou inválido');
-          return [];
-        }
-        throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
-      }
-
-      const data: ImageListResponse = await response.json();
+      console.log('🔄 [imageApiService.listar] Listando imagens do Storage...');
       
-      console.log('📊 Imagens carregadas via API:', {
-        totalImagens: data.images.length,
-        totalPaginas: data.pagination.total_pages,
-        paginaAtual: data.pagination.current_page
+      // Usar o novo método do imagensService que lista do Storage
+      const result = await imagensService.listarDoStorage(userId);
+      
+      if (!result.success) {
+        console.error('❌ Erro ao listar imagens do Storage');
+        return [];
+      }
+      
+      console.log('📊 Imagens carregadas do Storage:', {
+        totalImagens: result.data.length,
+        userId
       });
 
-      return data.images;
+      return result.data;
     } catch (error) {
-      console.error('❌ Erro ao carregar imagens via API:', error);
+      console.error('❌ Erro ao carregar imagens:', error);
       return [];
     }
   },
 
+  /**
+   * Exclui uma imagem do Storage e banco
+   * @param imageId ID da imagem a ser excluída
+   * @returns true se a exclusão foi bem-sucedida, false caso contrário
+   */
   async excluir(imageId: string): Promise<boolean> {
     try {
-      const token = await getAuthToken();
-      
-      if (!token) {
+      // Obter userId do contexto
+      const userId = await this.getCurrentUserId();
+      if (!userId) {
         console.warn('⚠️ Usuário não autenticado');
         return false;
       }
 
-      const response = await fetch('/api/delete-images', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image_ids: [imageId] }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.warn('⚠️ Token expirado ou inválido');
-          return false;
-        }
-        throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
+      // Validar parâmetro
+      if (!imageId || typeof imageId !== 'string') {
+        console.error('❌ ID da imagem inválido:', imageId);
+        return false;
       }
 
-      const data = await response.json();
-      return data.success && data.data.successful_deletions > 0;
+      console.log('🔄 [imageApiService.excluir] Excluindo imagem:', imageId);
+      
+      // Usar o novo método do imagensService que exclui do Storage
+      const result = await imagensService.excluirDoStorage(imageId, userId);
+      
+      if (result.success) {
+        console.log('✅ Imagem excluída com sucesso:', imageId);
+      } else {
+        console.warn('⚠️ Falha ao excluir imagem:', imageId, result.message);
+      }
+      
+      return result.success;
     } catch (error) {
-      console.error('❌ Erro ao excluir imagem via API:', error);
+      console.error('❌ Erro ao excluir imagem:', error);
       return false;
+    }
+  },
+
+  /**
+   * Método auxiliar para obter userId atual
+   * @returns string com userId ou null se não autenticado
+   */
+  async getCurrentUserId(): Promise<string | null> {
+    try {
+      // Importar supabase diretamente para evitar dependência circular
+      const { supabase } = await import('../lib/supabase');
+      
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        console.warn('⚠️ Usuário não encontrado:', error?.message);
+        return null;
+      }
+      
+      return user.id;
+    } catch (error) {
+      console.error('❌ Erro ao obter userId:', error);
+      return null;
     }
   }
 };

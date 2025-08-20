@@ -320,7 +320,11 @@ const ClientesPage: React.FC = () => {
                   {cliente.data_nascimento && (
                     <p className="text-sm text-gray-600 flex items-center">
                       <span className="text-secondary-500 mr-2">🎂</span>
-                      {new Date(cliente.data_nascimento).toLocaleDateString('pt-BR')}
+                      {(() => {
+                        // Garantir que a data seja exibida corretamente sem problemas de timezone
+                        const [ano, mes, dia] = cliente.data_nascimento.split('-');
+                        return `${dia}/${mes}/${ano}`;
+                      })()}
                     </p>
                   )}
                   {cliente.observacoes && (

@@ -30,6 +30,12 @@ export const clientesService = {
 
   async criar(userId: string, dadosCliente: Omit<Cliente, 'id' | 'created_at'>): Promise<Cliente> {
     try {
+      // Validar e normalizar data de nascimento
+      let dataNascimento = dadosCliente.data_nascimento || null;
+      if (dataNascimento && !/^\d{4}-\d{2}-\d{2}$/.test(dataNascimento)) {
+        throw new Error('Data de nascimento deve estar no formato YYYY-MM-DD');
+      }
+
       const { data, error } = await supabase
         .from('clientes')
         .insert({
@@ -37,7 +43,7 @@ export const clientesService = {
           nome: dadosCliente.nome,
           email: dadosCliente.email || null,
           telefone: dadosCliente.telefone || null,
-          data_nascimento: dadosCliente.data_nascimento || null,
+          data_nascimento: dataNascimento,
           observacoes: dadosCliente.observacoes || null
         })
         .select()
@@ -56,13 +62,19 @@ export const clientesService = {
 
   async atualizar(id: string, dadosCliente: Partial<Cliente>): Promise<Cliente | null> {
     try {
+      // Validar e normalizar data de nascimento
+      let dataNascimento = dadosCliente.data_nascimento || null;
+      if (dataNascimento && !/^\d{4}-\d{2}-\d{2}$/.test(dataNascimento)) {
+        throw new Error('Data de nascimento deve estar no formato YYYY-MM-DD');
+      }
+
       const { data, error } = await supabase
         .from('clientes')
         .update({
           nome: dadosCliente.nome,
           email: dadosCliente.email || null,
           telefone: dadosCliente.telefone || null,
-          data_nascimento: dadosCliente.data_nascimento || null,
+          data_nascimento: dataNascimento,
           observacoes: dadosCliente.observacoes || null
         })
         .eq('id', id)

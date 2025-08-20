@@ -61,6 +61,38 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [user?.id, userLoading]) // Removido 'user' completo para evitar re-renders desnecessários
 
+  // Listener para eventos de atualização de imagens
+  useEffect(() => {
+    if (!user?.id) return
+
+    const unsubscribeImage = cacheService.onImageUpdate((detail) => {
+      if (detail.userId === user.id) {
+        console.log(`📸 [DataContext] Evento de imagem recebido: ${detail.action}`)
+        if (detail.action === 'created') {
+          incrementImagens()
+        } else if (detail.action === 'deleted') {
+          decrementImagens()
+        }
+      }
+    })
+
+    const unsubscribeClient = cacheService.onClientUpdate((detail) => {
+      if (detail.userId === user.id) {
+        console.log(`👤 [DataContext] Evento de cliente recebido: ${detail.action}`)
+        if (detail.action === 'created') {
+          incrementClientes()
+        } else if (detail.action === 'deleted') {
+          decrementClientes()
+        }
+      }
+    })
+
+    return () => {
+      unsubscribeImage()
+      unsubscribeClient()
+    }
+  }, [user?.id])
+
   const refreshData = async () => {
     try {
       setLoading(true)

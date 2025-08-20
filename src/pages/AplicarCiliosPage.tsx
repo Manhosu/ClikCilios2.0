@@ -2,8 +2,9 @@ import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
 import { imagensService } from '../services/imagensService'
-
+import { cacheService } from '../services/cacheService'
 import { useAuthContext } from '../hooks/useAuthContext'
+import { useDataContext } from '../contexts/DataContext'
 import { authClient } from '../lib/authClient'
 import Button from '../components/Button'
 import { toast } from 'react-hot-toast'
@@ -11,6 +12,7 @@ import { toast } from 'react-hot-toast'
 const AplicarCiliosPage = () => {
   const navigate = useNavigate()
   const { user } = useAuthContext()
+  const { incrementImagens } = useDataContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagemOriginal, setImagemOriginal] = useState<string | null>(null)
   const [arquivoOriginal, setArquivoOriginal] = useState<File | null>(null)
@@ -206,10 +208,15 @@ const AplicarCiliosPage = () => {
         await imagensService.criar(imagemData);
         
         console.log('[AplicarCilios] Imagem salva com sucesso no Supabase Storage');
+        
+        // Invalidar cache e notificar outras páginas sobre nova imagem
+        if (user?.id) {
+          cacheService.invalidateImagesCache(user.id, 'created');
+        }
+        
         toast.success('✅ Imagem salva na galeria!');
         
         // Redirecionamento automático após salvamento
-        toast.success('✅ Imagem salva com sucesso!')
         setTimeout(() => {
           navigate('/minhas-imagens')
         }, 1500)

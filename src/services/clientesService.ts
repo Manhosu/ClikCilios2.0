@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { cacheService } from './cacheService'
 
 export interface Cliente {
   id: string
@@ -43,6 +44,10 @@ export const clientesService = {
         .single()
 
       if (error) throw error
+      
+      // Invalidar cache e notificar sobre criação
+      cacheService.invalidateClientsCache(userId, 'created')
+      
       return data
     } catch (error) {
       throw error
@@ -73,6 +78,15 @@ export const clientesService = {
 
   async excluir(id: string): Promise<boolean> {
     try {
+      // Primeiro buscar o cliente para obter o user_id
+      const { data: cliente, error: selectError } = await supabase
+        .from('clientes')
+        .select('user_id')
+        .eq('id', id)
+        .single()
+
+      if (selectError) throw selectError
+      
       const { data, error } = await supabase
         .from('clientes')
         .delete()
@@ -83,6 +97,11 @@ export const clientesService = {
       
       if (!data || data.length === 0) {
         return false
+      }
+      
+      // Invalidar cache e notificar sobre exclusão
+      if (cliente?.user_id) {
+        cacheService.invalidateClientsCache(cliente.user_id, 'deleted')
       }
       
       return true

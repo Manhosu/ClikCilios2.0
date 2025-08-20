@@ -1,4 +1,5 @@
 import { imagensService } from './imagensService';
+import { cacheService } from './cacheService';
 
 export interface ImagemCliente {
   id: string;
@@ -104,6 +105,8 @@ export const imageApiService = {
       
       if (result.success) {
         console.log('✅ Imagem excluída com sucesso:', imageId);
+        // Invalidar cache e notificar sobre a exclusão
+        cacheService.invalidateImagesCache(userId);
       } else {
         console.warn('⚠️ Falha ao excluir imagem:', imageId, result.message);
       }

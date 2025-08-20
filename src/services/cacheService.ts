@@ -15,6 +15,7 @@ export class CacheService {
   private readonly DEFAULT_TTL = 5 * 60 * 1000 // 5 minutos
   private readonly SESSION_KEY = 'clik_session_cache'
   private readonly AUTH_KEY = 'clik_auth_cache'
+  private eventTarget = new EventTarget()
 
   set<T>(key: string, data: T, ttl?: number): void {
     const item: CacheItem<T> = {
@@ -142,6 +143,74 @@ export class CacheService {
     )
     
     keys.forEach(key => this.delete(key))
+  }
+
+  // Sistema de eventos para notificação instantânea
+  notifyImageUpdate(userId: string, action: 'created' | 'deleted' | 'updated'): void {
+    const event = new CustomEvent('imageUpdate', {
+      detail: { userId, action, timestamp: Date.now() }
+    })
+    this.eventTarget.dispatchEvent(event)
+    
+    // Também disparar evento global no window para compatibilidade
+    window.dispatchEvent(new CustomEvent('clikImageUpdate', {
+      detail: { userId, action, timestamp: Date.now() }
+    }))
+  }
+
+  notifyClientUpdate(userId: string, action: 'created' | 'deleted' | 'updated'): void {
+    const event = new CustomEvent('clientUpdate', {
+      detail: { userId, action, timestamp: Date.now() }
+    })
+    this.eventTarget.dispatchEvent(event)
+    
+    // Também disparar evento global no window para compatibilidade
+    window.dispatchEvent(new CustomEvent('clikClientUpdate', {
+      detail: { userId, action, timestamp: Date.now() }
+    }))
+  }
+
+  onImageUpdate(callback: (detail: { userId: string, action: string, timestamp: number }) => void): () => void {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent
+      callback(customEvent.detail)
+    }
+    
+    this.eventTarget.addEventListener('imageUpdate', handler)
+    
+    // Retorna função de cleanup
+    return () => {
+      this.eventTarget.removeEventListener('imageUpdate', handler)
+    }
+  }
+
+  onClientUpdate(callback: (detail: { userId: string, action: string, timestamp: number }) => void): () => void {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent
+      callback(customEvent.detail)
+    }
+    
+    this.eventTarget.addEventListener('clientUpdate', handler)
+    
+    // Retorna função de cleanup
+    return () => {
+      this.eventTarget.removeEventListener('clientUpdate', handler)
+    }
+  }
+
+  // Invalidação inteligente com notificação
+  invalidateImagesCache(userId: string, action: 'created' | 'deleted' | 'updated' = 'updated'): void {
+    this.delete(`images_${userId}`)
+    this.delete(`data_${userId}`)
+    this.notifyImageUpdate(userId, action)
+    console.log(`🔄 [CacheService] Cache de imagens invalidado e evento disparado: ${action} para usuário ${userId}`)
+  }
+
+  invalidateClientsCache(userId: string, action: 'created' | 'deleted' | 'updated' = 'updated'): void {
+    this.delete(`clientes_${userId}`)
+    this.delete(`data_${userId}`)
+    this.notifyClientUpdate(userId, action)
+    console.log(`🔄 [CacheService] Cache de clientes invalidado e evento disparado: ${action} para usuário ${userId}`)
   }
 }
 

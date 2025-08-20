@@ -730,8 +730,8 @@ export const imagensService = {
 
       console.log('✅ [salvarNoSupabase] Imagem salva com sucesso:', savedImage.id);
       
-      // Invalidar cache após salvar nova imagem
-      this.invalidateImageCache(user.id, imageData.clienteId)
+      // Invalidar cache e notificar sobre a criação
+      cacheService.invalidateImagesCache(user.id);
       
       return {
         success: true,
@@ -752,23 +752,9 @@ export const imagensService = {
    * Invalida cache de imagens relacionado
    */
   invalidateImageCache(userId: string, clienteId?: string | null): void {
-    // Chaves de cache a serem invalidadas
-    const keysToInvalidate = [
-      `images_${userId}_all`,
-      `images_all_all`
-    ]
+    // Usar o novo sistema de invalidação com notificação
+    cacheService.invalidateImagesCache(userId, 'deleted')
     
-    if (clienteId) {
-      keysToInvalidate.push(`images_${userId}_${clienteId}`)
-    }
-    
-    keysToInvalidate.forEach(key => {
-      cacheService.delete(key)
-    })
-    
-    // Invalidar também cache de lista de imagens do usuário
-    cacheService.delete(`images_${userId}`)
-    
-    console.log('🗑️ [ImagensService] Cache invalidado para usuário:', userId)
+    console.log('🗑️ [ImagensService] Cache invalidado e evento enviado para usuário:', userId)
   }
 }

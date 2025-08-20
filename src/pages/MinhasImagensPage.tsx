@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
+import { useDataContext } from '../contexts/DataContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import { imageApiService, ImagemCliente } from '../services/imageApiService'
 import { cacheService } from '../services/cacheService'
@@ -13,6 +14,7 @@ import ConfirmationCard from '../components/ConfirmationCard'
 const MinhasImagensPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, isLoading: userLoading } = useAuthContext()
+  const { decrementImagens } = useDataContext()
   const [imagens, setImagens] = useState<ImagemCliente[]>([])
   // Removido: imagensLocais - usando apenas Supabase
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -45,8 +47,24 @@ const MinhasImagensPage: React.FC = () => {
     }
   }, [user, userLoading])
 
-  // Event listeners otimizados com cache inteligente
+  // Sistema de eventos para atualização instantânea
   useEffect(() => {
+    if (!user?.id) return
+
+    // Listener para eventos de imagem (sistema novo)
+    const handleImageUpdate = (event: CustomEvent) => {
+      const { userId, action } = event.detail
+      if (userId === user.id) {
+        console.log(`🔄 [MinhasImagens] Evento de imagem recebido: ${action}`)
+        // Recarregar dados imediatamente para nova imagem
+        if (action === 'created') {
+          carregarDados()
+        } else {
+          debouncedReload()
+        }
+      }
+    }
+
     let debounceTimer: NodeJS.Timeout
     
     const debouncedReload = () => {
@@ -89,12 +107,14 @@ const MinhasImagensPage: React.FC = () => {
       }
     }
 
-    // Listeners mais conservadores
+    // Registrar listeners
+    window.addEventListener('clikImageUpdate', handleImageUpdate as EventListener)
     window.addEventListener('storage', handleStorageChange)
     document.addEventListener('visibilitychange', handleVisibilityChange)
     
     return () => {
       clearTimeout(debounceTimer)
+      window.removeEventListener('clikImageUpdate', handleImageUpdate as EventListener)
       window.removeEventListener('storage', handleStorageChange)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
@@ -215,6 +235,7 @@ const MinhasImagensPage: React.FC = () => {
           const imagesWithTimestamp = Object.assign(updatedImages, { _timestamp: Date.now() })
           cacheService.setImagesList(user.id, imagesWithTimestamp, 5 * 60 * 1000)
         }
+        
         setModalAberto(false)
         fecharConfirmacaoExclusao()
         // Recarregar dados para atualizar contadores
@@ -452,24 +473,13 @@ const MinhasImagensPage: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </div>
                   <div className="space-y-2">
-                    <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
-                      {imagem.nome}
-                    </h3>
-                    {imagem.descricao && (
-                      <p className="text-sm text-primary-600 flex items-center">
-                        <span className="mr-1">💄</span>
-                        {imagem.descricao}
-                      </p>
-                    )}
-                    {imagem.cliente_id && (
-                      <p className="text-sm text-gray-600 flex items-center">
-                        <span className="text-secondary-500 mr-1">👤</span>
-                        {imagem.cliente_id}
-                      </p>
-                    )}
+                    <p className="text-sm text-primary-600 flex items-center font-medium">
+                      <span className="mr-1">💄</span>
+                      {extrairEstiloCilio(imagem.descricao)}
+                    </p>
                     <p className="text-xs text-gray-500 flex items-center">
                       <span className="mr-1">📅</span>
-                      {new Date(imagem.created_at).toLocaleDateString('pt-BR')}
+                      {formatarData(imagem.created_at)}
                     </p>
                   </div>
                 </div>

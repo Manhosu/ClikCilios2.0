@@ -113,7 +113,6 @@ const ClientesPage: React.FC = () => {
           data_nascimento: formData.data_nascimento || undefined,
           observacoes: formData.observacoes || undefined
         })
-        incrementClientes()
       }
 
       await carregarClientes()
@@ -143,7 +142,6 @@ const ClientesPage: React.FC = () => {
       
       if (sucesso) {
         console.log('✅ Cliente excluído com sucesso, recarregando lista...')
-        decrementClientes()
         await carregarClientes()
         fecharConfirmacaoExclusao()
         toast.success('Cliente excluído com sucesso!')

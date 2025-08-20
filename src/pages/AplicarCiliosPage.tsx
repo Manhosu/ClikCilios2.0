@@ -4,7 +4,7 @@ import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '
 import { imagensService } from '../services/imagensService'
 import { cacheService } from '../services/cacheService'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { useDataContext } from '../contexts/DataContext'
+// import { useDataContext } from '../contexts/DataContext' // Removido: não utilizado após implementação do sistema de eventos
 import { authClient } from '../lib/authClient'
 import Button from '../components/Button'
 import { toast } from 'react-hot-toast'
@@ -12,7 +12,6 @@ import { toast } from 'react-hot-toast'
 const AplicarCiliosPage = () => {
   const navigate = useNavigate()
   const { user } = useAuthContext()
-  const { incrementImagens } = useDataContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagemOriginal, setImagemOriginal] = useState<string | null>(null)
   const [arquivoOriginal, setArquivoOriginal] = useState<File | null>(null)

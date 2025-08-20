@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { useDataContext } from '../contexts/DataContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import { toast } from 'react-hot-toast'
 import Button from '../components/Button'
@@ -10,7 +9,6 @@ import ConfirmationCard from '../components/ConfirmationCard'
 const ClientesPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, isLoading: userLoading } = useAuthContext()
-  const { incrementClientes, decrementClientes } = useDataContext()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)

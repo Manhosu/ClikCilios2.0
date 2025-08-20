@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { useDataContext } from '../contexts/DataContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import { imageApiService, ImagemCliente } from '../services/imageApiService'
 import { cacheService } from '../services/cacheService'
@@ -14,7 +13,6 @@ import ConfirmationCard from '../components/ConfirmationCard'
 const MinhasImagensPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, isLoading: userLoading } = useAuthContext()
-  const { decrementImagens } = useDataContext()
   const [imagens, setImagens] = useState<ImagemCliente[]>([])
   // Removido: imagensLocais - usando apenas Supabase
   const [clientes, setClientes] = useState<Cliente[]>([])

@@ -751,7 +751,7 @@ export const imagensService = {
   /**
    * Invalida cache de imagens relacionado
    */
-  invalidateImageCache(userId: string, clienteId?: string | null): void {
+  invalidateImageCache(userId: string): void {
     // Usar o novo sistema de invalidação com notificação
     cacheService.invalidateImagesCache(userId, 'deleted')
     

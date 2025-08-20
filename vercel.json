@@ -1,9 +1,9 @@
 {
   "functions": {
-    "pages/api/hotmart-webhook.ts": {
+    "api/hotmart-webhook.ts": {
       "maxDuration": 30
     },
-    "pages/api/save-client-image.ts": {
+    "api/save-client-image.ts": {
       "maxDuration": 30,
       "memory": 1024
     }

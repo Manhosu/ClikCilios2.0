@@ -60,56 +60,7 @@ async function getDirectoryStats(userId: string): Promise<DirectoryStats | null>
   }
 }
 
-/**
- * Busca imagens do usuário com paginação
- */
-async function getUserImages(
-  userId: string, 
-  page: number = 1, 
-  limit: number = 20,
-  sortBy: string = 'created_at',
-  sortOrder: 'asc' | 'desc' = 'desc'
-): Promise<{ images: ImageListItem[], total: number }> {
-  try {
-    const offset = (page - 1) * limit;
 
-    // Buscar total de imagens
-    const { count } = await supabase
-      .from('imagens_clientes')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    // Buscar imagens com paginação
-    const { data: images, error } = await supabase
-      .from('imagens_clientes')
-      .select(`
-        id,
-        filename,
-        original_name,
-        file_size,
-        mime_type,
-        width,
-        height,
-        created_at,
-        updated_at
-      `)
-      .eq('user_id', userId)
-      .order(sortBy, { ascending: sortOrder === 'asc' })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      throw error;
-    }
-
-    return {
-      images: images || [],
-      total: count || 0
-    };
-  } catch (error) {
-    console.error('Erro ao buscar imagens:', error);
-    throw error;
-  }
-}
 
 /**
  * Handler principal da API
@@ -123,7 +74,7 @@ const listHandler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (!authResult || !authResult.userId) {
     throw new AuthenticationError('Falha na autenticação');
   }
-  const { userId, user } = authResult;
+  const { userId } = authResult;
 
   // Extrair e validar parâmetros de query
   const {

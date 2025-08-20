@@ -1,14 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs/promises';
-import path from 'path';
+// import path from 'path'; // Removido - não utilizado
 import mime from 'mime-types';
 import { 
   withErrorHandling,
   validateAuth,
   validateMethod,
-  validateImageId,
-  handleApiError
+  validateImageId
+  // handleApiError removido - não utilizado
 } from './middleware/validation';
 
 // Configuração do Supabase
@@ -106,7 +106,7 @@ const serveHandler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (!authResult || !authResult.userId) {
     throw new Error('Falha na autenticação');
   }
-  const { user, userId } = authResult;
+  const { userId } = authResult;
 
   // Extrair e validar ID da imagem
   const { imageId } = req.query;
@@ -129,8 +129,8 @@ const serveHandler = async (req: NextApiRequest, res: NextApiResponse) => {
       });
     }
 
-    // Processar parâmetros de redimensionamento (para futuras implementações)
-    const resizeParams = parseResizeParams(req.query);
+    // Parâmetros de redimensionamento removidos - não utilizados
+    // const resizeParams = parseResizeParams(req.query);
 
     // Determinar tipo MIME
     const mimeType = imageRecord.mime_type || mime.lookup(imageRecord.file_path) || 'application/octet-stream';

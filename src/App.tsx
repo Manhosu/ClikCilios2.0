@@ -16,11 +16,7 @@ import MinhasImagensPage from './pages/MinhasImagensPage'
 import ConfiguracoesPage from './pages/ConfiguracoesPage'
 import ParceriasPage from './pages/ParceriasPage'
 
-// Páginas Admin
-import AdminCuponsPage from './pages/AdminCuponsPage'
-import AdminEmailsPage from './pages/AdminEmailsPage'
-import AdminRelatorioCuponsPage from './pages/AdminRelatorioCuponsPage'
-import HotmartAdminPage from './pages/HotmartAdminPage'
+// Páginas Admin removidas para produção
 
 // Componente para roteamento inteligente na raiz
 const SmartRootRedirect = () => {
@@ -87,26 +83,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
-      {/* Rotas Admin */}
-      <Route path="/admin/cupons" element={
-        <ProtectedRoute>
-          <AdminCuponsPage />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/admin/emails" element={
-        <ProtectedRoute>
-          <AdminEmailsPage />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/admin/relatorio-cupons" element={
-        <ProtectedRoute>
-          <AdminRelatorioCuponsPage />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/admin/hotmart" element={<HotmartAdminPage />} />
+      {/* Rotas Admin removidas para produção */}
       
       {/* Rota raiz inteligente */}
       <Route path="/" element={<SmartRootRedirect />} />
@@ -127,9 +104,9 @@ function App() {
             
             {/* Modal de boas-vindas */}
             <WelcomeModal />
-            
-            {/* Toast notifications */}
-            <Toaster position="top-right" richColors />
+              
+              {/* Toast notifications */}
+              <Toaster position="top-right" richColors />
           </div>
         </DataProvider>
       </AuthProvider>

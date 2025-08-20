@@ -1,14 +1,10 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { useAdmin } from '../hooks/useAdmin'
 import { useDataContext } from '../contexts/DataContext'
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user, logout } = useAuthContext()
-  const { isAdmin } = useAdmin()
   const { totalClientes, totalImagens, loading, refreshData } = useDataContext()
 
   // Dados agora são gerenciados pelo DataContext
@@ -30,149 +26,42 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="flex h-screen bg-elegant-gradient">
-      {/* Sidebar */}
-      <div className={`bg-white shadow-soft transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'} flex flex-col`}>
-        <div className="p-6 border-b border-primary-100">
-          <div className="flex items-center">
-            <div className="h-12 w-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-elegant">
-              <span className="text-white text-xl">💎</span>
-            </div>
-            {sidebarOpen && (
+    <div className="min-h-screen bg-elegant-gradient">
+      {/* Header com botões essenciais */}
+      <div className="bg-white shadow-soft">
+        <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="h-12 w-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-elegant">
+                <span className="text-white text-xl">💎</span>
+              </div>
               <div className="ml-4">
                 <h1 className="text-xl font-bold text-gradient">CíliosClick</h1>
                 <p className="text-sm text-elegant-500 font-medium">{user?.nome || 'Profissional'}</p>
               </div>
-            )}
-          </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`mt-6 p-3 rounded-2xl bg-primary-50 hover:bg-primary-100 transition-all duration-200 text-primary-600 ${!sidebarOpen ? 'mx-auto' : ''}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
-
-        <nav className="flex-1 p-6">
-          <ul className="space-y-3">
-            <li>
-              <button
-                onClick={() => navigate('/aplicar-cilios')}
-                className={`sidebar-item-active w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-              >
-                <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/20">
-                  <span className="text-lg">✨</span>
-                </div>
-                {sidebarOpen && <span className="ml-3">Nova Visualização</span>}
-              </button>
-            </li>
-            <li>
-              <button 
-                onClick={() => navigate('/minhas-imagens')}
-                className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-              >
-                <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                  <span className="text-lg">🖼️</span>
-                </div>
-                {sidebarOpen && <span className="ml-3">Minhas Imagens</span>}
-              </button>
-            </li>
-            <li>
-              <button 
-                onClick={() => navigate('/clientes')}
-                className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-              >
-                <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                  <span className="text-lg">👥</span>
-                </div>
-                {sidebarOpen && <span className="ml-3">Clientes</span>}
-              </button>
-            </li>
-            <li>
-              <button 
-                onClick={() => navigate('/configuracoes')}
-                className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-              >
-                <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                  <span className="text-lg">⚙️</span>
-                </div>
-                {sidebarOpen && <span className="ml-3">Configurações</span>}
-              </button>
-            </li>
-            {isAdmin && (
-              <>
-                <li className="pt-6 border-t border-primary-100">
-                  <div className={`text-xs font-semibold text-elegant-500 uppercase tracking-wider mb-4 ${!sidebarOpen ? 'text-center' : ''}`}>
-                    {sidebarOpen ? 'Administração' : '⚙️'}
-                  </div>
-                </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/admin/cupons')}
-                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                      <span className="text-lg">🎫</span>
-                    </div>
-                    {sidebarOpen && <span className="ml-3">Gerenciar Cupons</span>}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/admin/relatorio-cupons')}
-                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                      <span className="text-lg">📊</span>
-                    </div>
-                    {sidebarOpen && <span className="ml-3">Relatório Cupons</span>}
-                  </button>
-                </li>
-                {/* Botões de teste removidos para produção */}
-                <li>
-                  <button
-                    onClick={() => navigate('/admin/emails')}
-                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                      <span className="text-lg">📧</span>
-                    </div>
-                    {sidebarOpen && <span className="ml-3">Templates Email</span>}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/admin/hotmart')}
-                    className={`sidebar-item w-full ${!sidebarOpen ? 'justify-center' : ''}`}
-                  >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-                      <span className="text-lg">🔗</span>
-                    </div>
-                    {sidebarOpen && <span className="ml-3">Integração Hotmart</span>}
-                  </button>
-                </li>
-              </>
-            )}
-          </ul>
-        </nav>
-
-        <div className="p-6 border-t border-primary-100">
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center p-3 rounded-2xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200 font-medium ${!sidebarOpen ? 'justify-center' : ''}`}
-          >
-            <div className="flex items-center justify-center w-8 h-8 rounded-xl">
-              <span className="text-lg">🚪</span>
             </div>
-            {sidebarOpen && <span className="ml-3">Sair</span>}
-          </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/configuracoes')}
+                className="flex items-center px-4 py-2 rounded-2xl bg-primary-50 hover:bg-primary-100 text-primary-600 transition-all duration-200 font-medium"
+              >
+                <span className="text-lg mr-2">⚙️</span>
+                Configurações
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 rounded-2xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200 font-medium"
+              >
+                <span className="text-lg mr-2">🚪</span>
+                Sair
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-10">
             <div className="flex items-center justify-between">
@@ -256,31 +145,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Área de ações rápidas */}
-          <div className="card">
-            <h2 className="text-2xl font-bold text-elegant-800 mb-6">Ações Rápidas</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button 
-                onClick={() => navigate('/aplicar-cilios')}
-                className="btn-primary gradient"
-                style={{ background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)' }}
-              >
-                ✨ Nova Visualização
-              </button>
-              <button 
-                onClick={() => navigate('/minhas-imagens')}
-                className="btn-secondary"
-              >
-                📁 Gerenciar Imagens
-              </button>
-              <button 
-                onClick={() => navigate('/clientes')}
-                className="btn-secondary"
-              >
-                👥 Ver Clientes
-              </button>
-            </div>
-          </div>
+          {/* Ações rápidas removidas - funcionalidades já disponíveis nos cards principais */}
         </div>
       </div>
     </div>

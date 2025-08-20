@@ -1,7 +1,5 @@
- import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { verificarECorrigirStorage } from '../services/fixSupabaseStorage'
-import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 export interface User {
   id: string
@@ -32,115 +30,10 @@ export const useAuth = () => {
   const initializationRef = useRef(false)
   const mountedRef = useRef(true)
 
-  // Função para carregar perfil do usuário
-  const loadUserProfile = useCallback(async (authUser: SupabaseUser) => {
-    if (!mountedRef.current) return
-    
-    try {
-      console.log('🔍 Carregando perfil do usuário:', authUser.email)
-      
-      // Timeout para evitar travamentos
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Timeout ao carregar perfil do usuário'))
-        }, 8000) // 8 segundos
-      })
-      
-      // Buscar dados do usuário no Supabase
-      const userDataPromise = supabase
-        .from('users')
-        .select('id, email, nome, is_admin, onboarding_completed')
-        .eq('id', authUser.id)
-        .single()
-      
-      const { data: userData, error } = await Promise.race([
-        userDataPromise,
-        timeoutPromise
-      ]) as any
+  // Função removida - agora criamos usuário diretamente na inicialização
 
-      if (!mountedRef.current) return
-
-      let user: User
-
-      if (error || !userData) {
-        console.log('📝 Usando dados do Auth como fallback')
-        user = {
-          id: authUser.id,
-          email: authUser.email || '',
-          nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
-          tipo: 'profissional',
-          is_admin: false,
-          onboarding_completed: false
-        }
-      } else {
-        console.log('✅ Perfil carregado do banco:', userData.nome)
-        user = {
-          id: userData.id,
-          email: userData.email,
-          nome: userData.nome,
-          tipo: userData.is_admin ? 'admin' : 'profissional',
-          is_admin: userData.is_admin,
-          onboarding_completed: userData.onboarding_completed
-        }
-      }
-
-      if (!mountedRef.current) return
-
-      setAuthState({
-        user,
-        isLoading: false,
-        isAuthenticated: true
-      })
-      
-      // Verificar storage em background (apenas se não foi feito recentemente)
-      const lastStorageCheck = localStorage.getItem('storage_check_time')
-      const shouldCheckStorage = !lastStorageCheck || 
-        Date.now() - parseInt(lastStorageCheck) > 60 * 60 * 1000 // 1 hora
-      
-      if (shouldCheckStorage) {
-        try {
-          const storagePromise = verificarECorrigirStorage()
-          const storageTimeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(new Error('Timeout na verificação do storage'))
-            }, 3000) // 3 segundos
-          })
-          
-          await Promise.race([storagePromise, storageTimeoutPromise])
-          localStorage.setItem('storage_check_time', Date.now().toString())
-          console.log('✅ Storage verificado e configurado')
-        } catch (storageError) {
-          console.warn('⚠️ Erro na verificação do storage (continuando):', storageError)
-        }
-      }
-        
-    } catch (error) {
-      console.error('❌ Erro ao carregar perfil:', error)
-      
-      if (!mountedRef.current) return
-      
-      // Fallback de emergência
-      const user: User = {
-        id: authUser.id,
-        email: authUser.email || '',
-        nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
-        tipo: 'profissional',
-        is_admin: false,
-        onboarding_completed: false
-      }
-
-      setAuthState({
-        user,
-        isLoading: false,
-        isAuthenticated: true
-      })
-    }
-  }, [])
-
-  // Inicialização da autenticação usando apenas persistência nativa do Supabase
+  // Inicialização simplificada da autenticação
   useEffect(() => {
-    let initTimeout: NodeJS.Timeout
-    
     // Evitar múltiplas inicializações
     if (initializationRef.current) return
     initializationRef.current = true
@@ -149,38 +42,28 @@ export const useAuth = () => {
       try {
         console.log('🚀 Inicializando autenticação...')
         
-        // Timeout de segurança para evitar travamentos
-        const timeoutPromise = new Promise((_, reject) => {
-          initTimeout = setTimeout(() => {
-            reject(new Error('Timeout na inicialização da autenticação'))
-          }, 8000) // 8 segundos (mesmo tempo do loadUserProfile)
-        })
-        
-        // Usar apenas supabase.auth.getSession() - sem cache customizado
-        const authPromise = supabase.auth.getSession()
-        
-        const { data: { session }, error } = await Promise.race([
-          authPromise,
-          timeoutPromise
-        ]) as any
-        
-        clearTimeout(initTimeout)
+        const { data: { session } } = await supabase.auth.getSession()
         
         if (!mountedRef.current) return
         
-        if (error) {
-          console.error('❌ Erro ao obter sessão:', error)
-          setAuthState({
-            user: null,
-            isLoading: false,
-            isAuthenticated: false
-          })
-          return
-        }
-        
         if (session?.user) {
           console.log('✅ Sessão encontrada para:', session.user.email)
-          await loadUserProfile(session.user)
+          
+          // Criar usuário simples sem buscar dados adicionais
+          const user: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            nome: session.user.user_metadata?.nome || session.user.email?.split('@')[0] || 'Usuário',
+            tipo: 'profissional',
+            is_admin: false,
+            onboarding_completed: true
+          }
+          
+          setAuthState({
+            user,
+            isLoading: false,
+            isAuthenticated: true
+          })
         } else {
           console.log('ℹ️ Nenhuma sessão ativa')
           setAuthState({
@@ -189,56 +72,59 @@ export const useAuth = () => {
             isAuthenticated: false
           })
         }
+        
       } catch (error) {
         console.error('❌ Erro na inicialização:', error)
-        clearTimeout(initTimeout)
-        if (mountedRef.current) {
-          setAuthState({
-            user: null,
-            isLoading: false,
-            isAuthenticated: false
-          })
-        }
-      }
-    }
-
-    // Configurar listener para mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('📡 Evento de autenticação:', event)
-      
-      if (!mountedRef.current) return
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('✅ Usuário logado:', session.user.email)
-        await loadUserProfile(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        console.log('🚪 Usuário deslogado')
+        
+        if (!mountedRef.current) return
+        
         setAuthState({
           user: null,
           isLoading: false,
           isAuthenticated: false
         })
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log('🔄 Token renovado com sucesso')
-        // Não recarregar perfil no refresh, apenas manter usuário atual
-        if (session?.user && !authState.user) {
-          await loadUserProfile(session.user)
+      }
+    }
+    
+    // Executar inicialização
+    initializeAuth()
+    
+    // Configurar listener para mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event)
+      
+      if (!mountedRef.current) return
+      
+      if (event === 'SIGNED_OUT') {
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false
+        })
+      } else if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          nome: session.user.user_metadata?.nome || session.user.email?.split('@')[0] || 'Usuário',
+          tipo: 'profissional',
+          is_admin: false,
+          onboarding_completed: true
         }
-      } else if (event === 'PASSWORD_RECOVERY') {
-        console.log('🔑 Recuperação de senha iniciada')
+        
+        setAuthState({
+          user,
+          isLoading: false,
+          isAuthenticated: true
+        })
       }
     })
-
-    // Inicializar imediatamente para acelerar detecção de sessão
-    initializeAuth()
-
+    
     // Cleanup
     return () => {
-      mountedRef.current = false
-      clearTimeout(initTimeout)
       subscription.unsubscribe()
+      mountedRef.current = false
     }
-  }, [loadUserProfile])
+  }, [])
 
   // Função de login
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {

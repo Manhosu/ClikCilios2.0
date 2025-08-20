@@ -9,8 +9,7 @@ const ConfiguracoesPage: React.FC = () => {
   const { user, logout, isLoading: userLoading } = useAuthContext()
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
-  const [salvandoPerfil, setSalvandoPerfil] = useState(false)
-  const [editandoPerfil, setEditandoPerfil] = useState(false)
+  // Variáveis de edição de perfil removidas - funcionalidade desabilitada
   const [configuracoes, setConfiguracoes] = useState<Configuracoes>({
     user_id: '',
     tema: 'claro',
@@ -24,19 +23,12 @@ const ConfiguracoesPage: React.FC = () => {
     backup_automatico: true,
     backup_frequencia: 'semanal'
   })
-  const [dadosPerfil, setDadosPerfil] = useState({
-    nome: '',
-    email: ''
-  })
+  // Estado de dados do perfil removido - edição desabilitada
 
   useEffect(() => {
     // Só carrega quando o user não estiver mais loading e existir
     if (!userLoading && user?.id) {
       carregarConfiguracoes()
-      setDadosPerfil({
-        nome: user.nome || '',
-        email: user.email || ''
-      })
     } else if (!userLoading && !user?.id) {
       // Se não está mais loading mas não tem user, para o loading
       setLoading(false)
@@ -81,56 +73,7 @@ const ConfiguracoesPage: React.FC = () => {
     }
   }
 
-  const salvarPerfil = async () => {
-    try {
-      setSalvandoPerfil(true)
-
-      if (!user?.id) {
-        alert('Usuário não autenticado')
-        return
-      }
-
-      // Validações
-      if (!dadosPerfil.nome.trim()) {
-        alert('❌ Nome é obrigatório')
-        return
-      }
-
-      if (!dadosPerfil.email.trim()) {
-        alert('❌ Email é obrigatório')
-        return
-      }
-
-      // Validação básica de email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(dadosPerfil.email)) {
-        alert('❌ Email inválido')
-        return
-      }
-
-      // TODO: Implementar integração com Supabase quando estiver em produção
-      // const { error } = await supabase.from('users').update({
-      //   nome: dadosPerfil.nome,
-      //   email: dadosPerfil.email
-      // }).eq('id', user.id)
-      
-      alert('⚠️ Atualização de perfil ainda não implementada para produção')
-
-    } catch (error) {
-      // Erro ao salvar perfil - log removido para produção
-      alert('❌ Erro ao salvar dados da conta')
-    } finally {
-      setSalvandoPerfil(false)
-    }
-  }
-
-  const cancelarEdicao = () => {
-    setDadosPerfil({
-      nome: user?.nome || '',
-      email: user?.email || ''
-    })
-    setEditandoPerfil(false)
-  }
+  // Funções de edição de perfil removidas - funcionalidade desabilitada
 
   const handleLogout = async () => {
     try {
@@ -187,29 +130,16 @@ const ConfiguracoesPage: React.FC = () => {
               🎨 Preferências do Sistema
             </h2>
             
+            {/* Salvamento automático removido - apenas salvamento manual disponível */}
             <div className="space-y-8">
               <div className="bg-gradient-to-r from-primary-50 to-secondary-50 p-6 rounded-2xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium text-gray-900 flex items-center mb-2">
-                      💾 Salvamento Automático
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Salvar imagens automaticamente após processamento com IA
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer ml-6">
-                    <input
-                      type="checkbox"
-                      checked={configuracoes.backup_automatico}
-                      onChange={(e) => setConfiguracoes(prev => ({ 
-                        ...prev, 
-                        backup_automatico: e.target.checked 
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary-600 shadow-lg"></div>
-                  </label>
+                <div className="text-center py-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">
+                    💾 Salvamento de Imagens
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    As imagens são salvas apenas quando você clicar no botão de salvar
+                  </p>
                 </div>
               </div>
             </div>
@@ -228,126 +158,46 @@ const ConfiguracoesPage: React.FC = () => {
 
           {/* Informações da Conta */}
           <div className="card-elegant p-8">
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900 flex items-center">
                 👤 Informações da Conta
               </h2>
-              {!editandoPerfil && (
-                <Button
-                  onClick={() => setEditandoPerfil(true)}
-                  variant="secondary"
-                  className="hover:scale-105 transition-transform"
-                >
-                  ✏️ Editar
-                </Button>
-              )}
+              <p className="text-sm text-gray-600 mt-1">Dados da sua conta (somente leitura)</p>
             </div>
             
-            {editandoPerfil ? (
-              // Modo de edição
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ✨ Nome *
-                    </label>
-                    <input
-                      type="text"
-                      value={dadosPerfil.nome}
-                      onChange={(e) => setDadosPerfil(prev => ({ ...prev, nome: e.target.value }))}
-                      className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                      placeholder="Seu nome completo"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      📧 Email *
-                    </label>
-                    <input
-                      type="email"
-                      value={dadosPerfil.email}
-                      onChange={(e) => setDadosPerfil(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                      placeholder="seu@email.com"
-                      required
-                    />
-                  </div>
+            {/* Modo de visualização apenas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-gradient-to-r from-primary-50 to-primary-100 rounded-2xl">
+                  <label className="block text-sm font-medium text-primary-700 mb-1">
+                    ✨ Nome
+                  </label>
+                  <p className="text-gray-900 font-medium">{user?.nome}</p>
                 </div>
-
-                {/* Campos não editáveis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-60">
-                  <div className="p-4 bg-gradient-to-r from-secondary-50 to-secondary-100 rounded-2xl">
-                    <label className="block text-sm font-medium text-secondary-700 mb-1">
-                      👑 Tipo de Conta
-                    </label>
-                    <p className="text-gray-900 font-medium capitalize">{user?.tipo}</p>
-                  </div>
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl">
-                    <label className="block text-sm font-medium text-blue-700 mb-1">
-                      🔐 Status
-                    </label>
-                    <p className="text-gray-900 font-medium">
-                      ✅ Conta Ativa
-                    </p>
-                  </div>
-                </div>
-
-                {/* Botões de ação */}
-                <div className="flex gap-4 pt-4">
-                  <Button
-                    onClick={cancelarEdicao}
-                    variant="secondary"
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={salvarPerfil}
-                    variant="primary"
-                    isLoading={salvandoPerfil}
-                    className="flex-1 shadow-elegant hover:scale-105 transition-transform"
-                  >
-                    💾 Salvar Alterações
-                  </Button>
+                <div className="p-4 bg-gradient-to-r from-secondary-50 to-secondary-100 rounded-2xl">
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    👑 Tipo de Conta
+                  </label>
+                  <p className="text-gray-900 font-medium capitalize">{user?.tipo}</p>
                 </div>
               </div>
-            ) : (
-              // Modo de visualização
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="p-4 bg-gradient-to-r from-primary-50 to-primary-100 rounded-2xl">
-                    <label className="block text-sm font-medium text-primary-700 mb-1">
-                      ✨ Nome
-                    </label>
-                    <p className="text-gray-900 font-medium">{user?.nome}</p>
-                  </div>
-                  <div className="p-4 bg-gradient-to-r from-secondary-50 to-secondary-100 rounded-2xl">
-                    <label className="block text-sm font-medium text-secondary-700 mb-1">
-                      👑 Tipo de Conta
-                    </label>
-                    <p className="text-gray-900 font-medium capitalize">{user?.tipo}</p>
-                  </div>
+              <div className="space-y-4">
+                <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl">
+                  <label className="block text-sm font-medium text-green-700 mb-1">
+                    📧 Email
+                  </label>
+                  <p className="text-gray-900 font-medium">{user?.email}</p>
                 </div>
-                <div className="space-y-4">
-                  <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl">
-                    <label className="block text-sm font-medium text-green-700 mb-1">
-                      📧 Email
-                    </label>
-                    <p className="text-gray-900 font-medium">{user?.email}</p>
-                  </div>
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl">
-                    <label className="block text-sm font-medium text-blue-700 mb-1">
-                      🔐 Status
-                    </label>
-                    <p className="text-gray-900 font-medium">
-                      ✅ Conta Ativa
-                    </p>
-                  </div>
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl">
+                  <label className="block text-sm font-medium text-blue-700 mb-1">
+                    🔐 Status
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    ✅ Conta Ativa
+                  </p>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Ações da Conta */}
@@ -375,23 +225,7 @@ const ConfiguracoesPage: React.FC = () => {
                 </div>
               </div>
               
-              <div className="space-y-4">
-                <div className="p-6 bg-gradient-to-r from-purple-50 to-purple-100 rounded-2xl border border-purple-200">
-                  <h3 className="font-medium text-purple-800 mb-2 flex items-center">
-                    📊 Estatísticas
-                  </h3>
-                  <p className="text-sm text-purple-700 mb-4">
-                    Visualizar dados de uso da sua conta
-                  </p>
-                  <Button
-                    onClick={() => navigate('/dashboard')}
-                    variant="secondary"
-                    className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
-                  >
-                    📈 Ver Dashboard
-                  </Button>
-                </div>
-              </div>
+              {/* Seção de Estatísticas removida - funcionalidade desnecessária */}
             </div>
           </div>
         </div>

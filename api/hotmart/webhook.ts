@@ -11,57 +11,44 @@ const hotmartSupabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Implementação inline das funções necessárias do hotmartUsersService
+// Implementação usando as funções RPC do Supabase
 const hotmartUsersService = {
-  async assignUserToHotmart(buyerEmail: string, buyerName: string, transactionId: string, notificationId: string) {
+  async assignUserToHotmart(buyerEmail: string, buyerName: string, transactionId: string, password: string) {
     try {
-      const { data: availableUsers, error: fetchError } = await hotmartSupabase
-        .from('users')
-        .select('*')
-        .eq('is_admin', false)
-        .eq('status', 'available')
-        .is('hotmart_buyer_email', null)
-        .order('created_at', { ascending: true })
-        .limit(1);
+      const { data, error } = await hotmartSupabase
+        .rpc('assign_user_hotmart', {
+          p_buyer_email: buyerEmail,
+          p_buyer_name: buyerName,
+          p_hotmart_transaction_id: transactionId,
+          p_password: password
+        });
 
-      if (fetchError) {
-        throw fetchError;
+      if (error) {
+        console.error('Erro na função RPC assign_user_hotmart:', error);
+        throw error;
       }
 
-      if (!availableUsers || availableUsers.length === 0) {
+      if (!data || data.length === 0) {
         return {
           success: false,
           message: 'Nenhum usuário disponível para atribuição'
         };
       }
 
-      const user = availableUsers[0];
-      const expiresAt = new Date();
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1 ano de acesso
-
-      const { error: updateError } = await hotmartSupabase
-        .from('users')
-        .update({
-          status: 'occupied',
-          hotmart_buyer_email: buyerEmail,
-          hotmart_buyer_name: buyerName,
-          hotmart_transaction_id: transactionId,
-          hotmart_notification_id: notificationId,
-          assigned_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (updateError) {
-        throw updateError;
+      const result = data[0];
+      
+      if (!result.success) {
+        return {
+          success: false,
+          message: result.message
+        };
       }
 
       return {
         success: true,
-        user_id: user.id,
-        username: user.username,
-        message: 'Usuário atribuído com sucesso'
+        user_id: result.assigned_user_id,
+        username: result.user_email, // Usando email como username temporariamente
+        message: result.message
       };
     } catch (error) {
       console.error('Erro ao atribuir usuário:', error);
@@ -71,53 +58,37 @@ const hotmartUsersService = {
 
   async releaseUserByTransaction(transactionId: string) {
     try {
-      const { data: users, error: fetchError } = await hotmartSupabase
-        .from('users')
-        .select('*')
-        .eq('hotmart_transaction_id', transactionId);
+      const { data, error } = await hotmartSupabase
+        .rpc('release_user_hotmart', {
+          p_hotmart_transaction_id: transactionId
+        });
 
-      if (fetchError) {
-        throw fetchError;
+      if (error) {
+        console.error('Erro na função RPC release_user_hotmart:', error);
+        throw error;
       }
 
-      if (!users || users.length === 0) {
+      if (!data || data.length === 0) {
         return {
           success: false,
           message: 'Usuário não encontrado para esta transação'
         };
       }
 
-      const user = users[0];
-
-      const { error: updateError } = await hotmartSupabase
-        .from('users')
-        .update({
-          status: 'available',
-          hotmart_buyer_email: null,
-          hotmart_buyer_name: null,
-          hotmart_transaction_id: null,
-          hotmart_notification_id: null,
-          assigned_at: null,
-          expires_at: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
+      const result = data[0];
+      
       return {
-        success: true,
-        user_id: user.id,
-        username: user.username,
-        message: 'Usuário liberado com sucesso'
-      };
-    } catch (error) {
-      console.error('Erro ao liberar usuário:', error);
-      throw error;
-    }
-  }
+         success: result.success,
+         message: result.message
+       };
+     } catch (error) {
+       console.error('Erro ao liberar usuário:', error);
+       return {
+         success: false,
+         message: 'Erro interno ao liberar usuário'
+       };
+     }
+   }
 };
 
 // Interfaces para substituir Next.js
@@ -189,12 +160,12 @@ async function releaseUser(transactionId: string, notificationId: string) {
     // Usa o serviço de usuários para liberar usuário
     const result = await hotmartUsersService.releaseUserByTransaction(transactionId);
     
-    if (!result) {
-      console.log('⚠️ Usuário não encontrado ou já liberado');
+    if (!result.success) {
+      console.log('⚠️ Usuário não encontrado ou já liberado:', result.message);
       return false;
     }
     
-    console.log(`✅ Usuário ${result.username} liberado com sucesso`);
+    console.log(`✅ Usuário liberado com sucesso: ${result.message}`);
     return true;
   } catch (error) {
     console.error('❌ Erro ao liberar usuário:', error);
@@ -249,7 +220,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           buyer.email,
           buyer.name,
           purchase.transaction,
-          payload.id
+          password
         );
 
         if (!result) {

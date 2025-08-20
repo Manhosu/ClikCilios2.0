@@ -424,7 +424,7 @@ export const imagensService = {
       } else if (error.message && error.message.toLowerCase().includes('policy')) {
         throw new Error(`Erro de permissão: Políticas RLS não configuradas para o bucket 'minhas-imagens'. Verifique as permissões no Dashboard.`);
       } else if (error.message && error.message.toLowerCase().includes('size')) {
-        throw new Error(`Arquivo muito grande: O limite é de 10MB. Reduza o tamanho da imagem.`);
+        throw new Error(`Arquivo muito grande: O limite é de 100MB. Reduza o tamanho da imagem.`);
       } else if (error.message && error.message.toLowerCase().includes('type')) {
         throw new Error(`Tipo de arquivo não permitido: Use apenas JPEG, PNG, WebP ou GIF.`);
       } else {
@@ -498,7 +498,7 @@ export const imagensService = {
     maxWidth?: number;
     maxHeight?: number;
   }): { valid: boolean; error?: string } {
-    const maxSize = options?.maxSize || 10 * 1024 * 1024; // 10MB
+    const maxSize = options?.maxSize || 100 * 1024 * 1024; // 100MB
     const allowedTypes = options?.allowedTypes || [
       'image/jpeg',
       'image/jpg', 

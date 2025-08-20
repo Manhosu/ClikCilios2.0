@@ -36,7 +36,7 @@ const AplicarCiliosPage = () => {
     if (file) {
       // Validações básicas
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png']
-      const maxSize = 10 * 1024 * 1024 // 10MB
+      const maxSize = 100 * 1024 * 1024 // 100MB
       
       if (!validTypes.includes(file.type)) {
         setErro('Formato inválido. Use apenas JPEG ou PNG.')
@@ -44,7 +44,7 @@ const AplicarCiliosPage = () => {
       }
       
       if (file.size > maxSize) {
-        setErro('Arquivo muito grande. Máximo de 10MB.')
+        setErro('Arquivo muito grande. Máximo de 100MB.')
         return
       }
 

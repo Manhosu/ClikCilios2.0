@@ -28,7 +28,7 @@ export interface UserImageDirectory {
 
 class ImageManagerService {
   private readonly baseImagePath = './minhas-imagens';
-  private readonly maxFileSize = 10 * 1024 * 1024; // 10MB
+  private readonly maxFileSize = 100 * 1024 * 1024; // 100MB
   private readonly allowedMimeTypes = [
     'image/jpeg',
     'image/jpg',

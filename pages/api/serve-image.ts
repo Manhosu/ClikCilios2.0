@@ -165,6 +165,6 @@ export default withErrorHandling(serveHandler);
 // Configuração para permitir responses maiores
 export const config = {
   api: {
-    responseLimit: '10mb',
+    responseLimit: '100mb',
   },
 };

@@ -40,7 +40,7 @@ export class FileValidationError extends Error {
 // Configurações de validação
 export const VALIDATION_CONFIG = {
   // Arquivos
-  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+  MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB
   MAX_FILES_PER_UPLOAD: 10,
   ALLOWED_MIME_TYPES: [
     'image/jpeg',

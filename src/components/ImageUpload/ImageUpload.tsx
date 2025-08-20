@@ -16,7 +16,7 @@ interface ImageUploadProps {
 const ImageUpload: React.FC<ImageUploadProps> = ({
   onUploadSuccess,
   onUploadError,
-  maxFileSize = 10 * 1024 * 1024, // 10MB
+  maxFileSize = 100 * 1024 * 1024, // 100MB
   acceptedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
   multiple = false,
   className = ''

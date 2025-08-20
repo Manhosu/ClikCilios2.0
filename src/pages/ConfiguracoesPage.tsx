@@ -1,77 +1,23 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
-import { configuracoesService, Configuracoes } from '../services/configuracoesService'
 import Button from '../components/Button'
 
 const ConfiguracoesPage: React.FC = () => {
   const navigate = useNavigate()
   const { user, logout, isLoading: userLoading } = useAuthContext()
   const [loading, setLoading] = useState(true)
-  const [salvando, setSalvando] = useState(false)
-  // Variáveis de edição de perfil removidas - funcionalidade desabilitada
-  const [configuracoes, setConfiguracoes] = useState<Configuracoes>({
-    user_id: '',
-    tema: 'claro',
-    notificacoes_email: true,
-    notificacoes_push: true,
-    idioma: 'pt-BR',
-    timezone: 'America/Sao_Paulo',
-    formato_data: 'DD/MM/YYYY',
-    formato_hora: '24h',
-    moeda: 'BRL',
-    backup_automatico: true,
-    backup_frequencia: 'semanal'
-  })
   // Estado de dados do perfil removido - edição desabilitada
 
   useEffect(() => {
-    // Só carrega quando o user não estiver mais loading e existir
-    if (!userLoading && user?.id) {
-      carregarConfiguracoes()
-    } else if (!userLoading && !user?.id) {
-      // Se não está mais loading mas não tem user, para o loading
+    if (!userLoading && user) {
       setLoading(false)
+    } else if (!userLoading && !user) {
+      navigate('/login')
     }
   }, [user, userLoading])
 
-  const carregarConfiguracoes = async () => {
-    try {
-      setLoading(true)
-      
-      if (!user?.id) {
-        return
-      }
-
-      const configuracoes = await configuracoesService.obter(user.id)
-      setConfiguracoes(configuracoes)
-    } catch (error) {
-      // Erro ao carregar configurações - log removido para produção
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const salvarConfiguracoes = async () => {
-    try {
-      setSalvando(true)
-
-      if (!user?.id) {
-        alert('Usuário não autenticado')
-        return
-      }
-
-      const configSalva = await configuracoesService.atualizar(user.id, configuracoes)
-      setConfiguracoes(configSalva)
-
-      alert('✅ Configurações salvas com sucesso!')
-    } catch (error) {
-      // Erro ao salvar configurações - log removido para produção
-      alert('❌ Erro ao salvar configurações')
-    } finally {
-      setSalvando(false)
-    }
-  }
+  // Funções de configurações removidas - seção de preferências removida
 
   // Funções de edição de perfil removidas - funcionalidade desabilitada
 
@@ -124,37 +70,6 @@ const ConfiguracoesPage: React.FC = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Preferências */}
-          <div className="card-elegant p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-              🎨 Preferências do Sistema
-            </h2>
-            
-            {/* Salvamento automático removido - apenas salvamento manual disponível */}
-            <div className="space-y-8">
-              <div className="bg-gradient-to-r from-primary-50 to-secondary-50 p-6 rounded-2xl">
-                <div className="text-center py-4">
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">
-                    💾 Salvamento de Imagens
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    As imagens são salvas apenas quando você clicar no botão de salvar
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-8">
-              <Button 
-                onClick={salvarConfiguracoes} 
-                variant="primary"
-                isLoading={salvando}
-                className="shadow-elegant hover:scale-105 transition-transform"
-              >
-                💾 Salvar Preferências
-              </Button>
-            </div>
-          </div>
 
           {/* Informações da Conta */}
           <div className="card-elegant p-8">

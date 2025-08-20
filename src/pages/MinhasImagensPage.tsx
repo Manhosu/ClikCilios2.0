@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 import { clientesService, Cliente } from '../services/clientesService'
 import { imageApiService, ImagemCliente } from '../services/imageApiService'
+import { cacheService } from '../services/cacheService'
 
 import { toast } from 'react-hot-toast'
 
@@ -44,68 +45,107 @@ const MinhasImagensPage: React.FC = () => {
     }
   }, [user, userLoading])
 
-  // Atualizar dados quando a página ganhar foco
+  // Event listeners otimizados com cache inteligente
   useEffect(() => {
-    const handleFocus = () => {
-      if (user?.id && !loading) {
-        console.log('🔄 [MinhasImagens] Página ganhou foco - recarregando dados')
-        carregarDados()
-      }
+    let debounceTimer: NodeJS.Timeout
+    
+    const debouncedReload = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        if (user?.id && !loading) {
+          // Verificar se realmente precisa recarregar (cache válido?)
+          const cached = cacheService.getImagesList(user.id)
+          const cacheAge = Date.now() - (((cached as any)?._timestamp) || 0)
+          
+          if (!cached || cacheAge > 3 * 60 * 1000) { // 3 minutos
+            console.log('🔄 [MinhasImagens] Cache expirado - recarregando dados')
+            carregarDados()
+          } else {
+            console.log('✅ [MinhasImagens] Cache ainda válido, não recarregando')
+          }
+        }
+      }, 1500) // Debounce de 1.5 segundos
     }
 
     const handleStorageChange = (e: StorageEvent) => {
-      // Detectar mudanças nos dados de clientes ou imagens
-      if ((e.key?.includes('ciliosclick_clientes') || e.key?.includes('ciliosclick_imagens')) && user?.id && !loading) {
-        console.log('🔄 [MinhasImagens] Storage mudou - recarregando dados')
-        carregarDados()
-      }
-    }
-    
-    const handleVisibilityChange = () => {
-      // Recarregar quando a página se torna visível novamente
-      if (!document.hidden && user?.id && !loading) {
-        console.log('🔄 [MinhasImagens] Página ficou visível - recarregando dados')
-        carregarDados()
+      // Apenas recarregar se for mudança relevante e não do próprio cache
+      if ((e.key?.includes('ciliosclick') || e.key?.includes('image')) && 
+          !e.key.includes('cache') && !e.key.includes('clik_') && user?.id) {
+        console.log('🔄 [MinhasImagens] Storage alterado externamente')
+        debouncedReload()
       }
     }
 
-    window.addEventListener('focus', handleFocus)
+    const handleVisibilityChange = () => {
+      // Recarregar apenas se a página ficou visível após muito tempo
+      if (!document.hidden && user?.id && !loading) {
+        const lastLoad = localStorage.getItem('last_image_load')
+        const timeSinceLastLoad = Date.now() - (parseInt(lastLoad || '0'))
+        
+        if (timeSinceLastLoad > 10 * 60 * 1000) { // 10 minutos
+          console.log('🔄 [MinhasImagens] Página visível após longo tempo - recarregando')
+          debouncedReload()
+        }
+      }
+    }
+
+    // Listeners mais conservadores
     window.addEventListener('storage', handleStorageChange)
     document.addEventListener('visibilitychange', handleVisibilityChange)
     
     return () => {
-      window.removeEventListener('focus', handleFocus)
+      clearTimeout(debounceTimer)
       window.removeEventListener('storage', handleStorageChange)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [user?.id, loading])
 
-  // Atualização automática a cada 10 segundos quando a página está visível
+  // Atualização automática mais inteligente (apenas se necessário)
   useEffect(() => {
     if (!user?.id) return
 
     const interval = setInterval(() => {
       if (!document.hidden && !loading) {
-        console.log('🔄 [MinhasImagens] Refresh automático - recarregando dados')
-        carregarDados()
+        // Verificar se cache está muito antigo (mais de 5 minutos)
+        const cached = cacheService.getImagesList(user.id)
+        const cacheAge = Date.now() - (((cached as any)?._timestamp) || 0)
+        
+        if (!cached || cacheAge > 5 * 60 * 1000) {
+          console.log('🔄 [MinhasImagens] Refresh automático - cache expirado')
+          carregarDados()
+        }
       }
-    }, 10000) // 10 segundos para detectar novas imagens mais rapidamente
+    }, 30000) // 30 segundos (menos agressivo) para detectar novas imagens mais rapidamente
 
     return () => clearInterval(interval)
   }, [user?.id, loading])
 
 
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     try {
-      setLoading(true)
-      
       if (!user?.id) {
         setImagens([])
-        // Removido: setImagensLocais - usando apenas Supabase
         setClientes([])
+        setLoading(false)
         return
       }
+      
+      // Verificar cache primeiro
+      const cachedImages = cacheService.getImagesList(user.id)
+      const cachedClients = cacheService.getUserData(`clients_${user.id}`)
+      
+      // Se temos cache válido, usar primeiro (stale-while-revalidate)
+      if (cachedImages && cachedClients && 
+          Date.now() - ((cachedImages as any)._timestamp || 0) < 3 * 60 * 1000) {
+        console.log('✅ [MinhasImagens] Usando dados do cache')
+        setImagens(cachedImages.filter(img => img.id))
+        setClientes(cachedClients)
+        setLoading(false)
+        return
+      }
+      
+      setLoading(true)
 
       // Carregar imagens do Supabase Storage e clientes usando os serviços
       const [imagensData, clientesData] = await Promise.all([
@@ -116,6 +156,12 @@ const MinhasImagensPage: React.FC = () => {
       setImagens(imagensData)
       setClientes(clientesData)
       
+      // Salvar no cache com timestamp
+      const imagesWithTimestamp = Object.assign(imagensData, { _timestamp: Date.now() })
+      cacheService.setImagesList(user.id, imagesWithTimestamp, 5 * 60 * 1000)
+      cacheService.setUserData(`clients_${user.id}`, clientesData, 10 * 60 * 1000)
+      localStorage.setItem('last_image_load', Date.now().toString())
+      
       console.log('📊 Dados carregados do Supabase Storage:', {
         totalImagens: imagensData.length,
         totalClientes: clientesData.length,
@@ -124,12 +170,28 @@ const MinhasImagensPage: React.FC = () => {
       })
     } catch (error) {
       console.error('Erro ao carregar dados do Supabase:', error)
-      setImagens([])
-      setClientes([])
+      
+      // Tentar usar cache em caso de erro
+      if (user?.id) {
+        const cachedImages = cacheService.getImagesList(user.id)
+        const cachedClients = cacheService.getUserData(`clients_${user.id}`)
+        
+        if (cachedImages && cachedClients) {
+          console.log('⚠️ [MinhasImagens] Usando cache devido a erro')
+          setImagens(cachedImages.filter(img => img.id))
+          setClientes(cachedClients)
+        } else {
+          setImagens([])
+          setClientes([])
+        }
+      } else {
+        setImagens([])
+        setClientes([])
+      }
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
 
   const abrirConfirmacaoExclusao = (id: string) => {
     setConfirmacaoExclusao({ isOpen: true, imagemId: id })
@@ -145,7 +207,14 @@ const MinhasImagensPage: React.FC = () => {
     try {
       const sucesso = await imageApiService.excluir(confirmacaoExclusao.imagemId)
       if (sucesso) {
-        setImagens(prev => prev.filter(img => img.id !== confirmacaoExclusao.imagemId))
+        const updatedImages = imagens.filter(img => img.id !== confirmacaoExclusao.imagemId)
+        setImagens(updatedImages)
+        
+        // Atualizar cache
+        if (user?.id) {
+          const imagesWithTimestamp = Object.assign(updatedImages, { _timestamp: Date.now() })
+          cacheService.setImagesList(user.id, imagesWithTimestamp, 5 * 60 * 1000)
+        }
         setModalAberto(false)
         fecharConfirmacaoExclusao()
         // Recarregar dados para atualizar contadores

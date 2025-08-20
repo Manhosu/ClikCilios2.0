@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { verificarECorrigirStorage } from '../services/fixSupabaseStorage'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -20,7 +20,7 @@ export interface AuthState {
 
 /**
  * Hook simplificado para gerenciar autenticação com Supabase
- * Versão otimizada sem complexidade desnecessária
+ * Usa apenas persistência nativa do Supabase, sem cache customizado
  */
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
@@ -28,9 +28,14 @@ export const useAuth = () => {
     isLoading: true,
     isAuthenticated: false
   })
+  
+  const initializationRef = useRef(false)
+  const mountedRef = useRef(true)
 
   // Função para carregar perfil do usuário
   const loadUserProfile = useCallback(async (authUser: SupabaseUser) => {
+    if (!mountedRef.current) return
+    
     try {
       console.log('🔍 Carregando perfil do usuário:', authUser.email)
       
@@ -38,7 +43,7 @@ export const useAuth = () => {
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           reject(new Error('Timeout ao carregar perfil do usuário'))
-        }, 5000) // 5 segundos
+        }, 8000) // 8 segundos
       })
       
       // Buscar dados do usuário no Supabase
@@ -52,6 +57,8 @@ export const useAuth = () => {
         userDataPromise,
         timeoutPromise
       ]) as any
+
+      if (!mountedRef.current) return
 
       let user: User
 
@@ -77,29 +84,40 @@ export const useAuth = () => {
         }
       }
 
+      if (!mountedRef.current) return
+
       setAuthState({
         user,
         isLoading: false,
         isAuthenticated: true
       })
       
-      // Verificar e corrigir configuração do Supabase Storage em background com timeout
-      try {
-        const storagePromise = verificarECorrigirStorage()
-        const storageTimeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Timeout na verificação do storage'))
-          }, 2000) // 2 segundos
-        })
-        
-        await Promise.race([storagePromise, storageTimeoutPromise])
-        console.log('✅ Storage verificado e configurado')
-      } catch (storageError) {
-        console.warn('⚠️ Erro na verificação do storage (continuando):', storageError)
+      // Verificar storage em background (apenas se não foi feito recentemente)
+      const lastStorageCheck = localStorage.getItem('storage_check_time')
+      const shouldCheckStorage = !lastStorageCheck || 
+        Date.now() - parseInt(lastStorageCheck) > 60 * 60 * 1000 // 1 hora
+      
+      if (shouldCheckStorage) {
+        try {
+          const storagePromise = verificarECorrigirStorage()
+          const storageTimeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Timeout na verificação do storage'))
+            }, 3000) // 3 segundos
+          })
+          
+          await Promise.race([storagePromise, storageTimeoutPromise])
+          localStorage.setItem('storage_check_time', Date.now().toString())
+          console.log('✅ Storage verificado e configurado')
+        } catch (storageError) {
+          console.warn('⚠️ Erro na verificação do storage (continuando):', storageError)
+        }
       }
         
     } catch (error) {
       console.error('❌ Erro ao carregar perfil:', error)
+      
+      if (!mountedRef.current) return
       
       // Fallback de emergência
       const user: User = {
@@ -116,28 +134,16 @@ export const useAuth = () => {
         isLoading: false,
         isAuthenticated: true
       })
-      
-      // Verificar e corrigir configuração do Supabase Storage em background com timeout
-      try {
-        const storagePromise = verificarECorrigirStorage()
-        const storageTimeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Timeout na verificação do storage (fallback)'))
-          }, 2000) // 2 segundos
-        })
-        
-        await Promise.race([storagePromise, storageTimeoutPromise])
-        console.log('✅ Storage verificado e configurado (fallback)')
-      } catch (storageError) {
-        console.warn('⚠️ Erro na verificação do storage (fallback, continuando):', storageError)
-      }
     }
   }, [])
 
-  // Inicialização da autenticação
+  // Inicialização da autenticação usando apenas persistência nativa do Supabase
   useEffect(() => {
-    let mounted = true
     let initTimeout: NodeJS.Timeout
+    
+    // Evitar múltiplas inicializações
+    if (initializationRef.current) return
+    initializationRef.current = true
     
     const initializeAuth = async () => {
       try {
@@ -147,9 +153,10 @@ export const useAuth = () => {
         const timeoutPromise = new Promise((_, reject) => {
           initTimeout = setTimeout(() => {
             reject(new Error('Timeout na inicialização da autenticação'))
-          }, 5000) // 5 segundos
+          }, 8000) // 8 segundos (mesmo tempo do loadUserProfile)
         })
         
+        // Usar apenas supabase.auth.getSession() - sem cache customizado
         const authPromise = supabase.auth.getSession()
         
         const { data: { session }, error } = await Promise.race([
@@ -159,7 +166,7 @@ export const useAuth = () => {
         
         clearTimeout(initTimeout)
         
-        if (!mounted) return
+        if (!mountedRef.current) return
         
         if (error) {
           console.error('❌ Erro ao obter sessão:', error)
@@ -185,7 +192,7 @@ export const useAuth = () => {
       } catch (error) {
         console.error('❌ Erro na inicialização:', error)
         clearTimeout(initTimeout)
-        if (mounted) {
+        if (mountedRef.current) {
           setAuthState({
             user: null,
             isLoading: false,
@@ -199,7 +206,7 @@ export const useAuth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('📡 Evento de autenticação:', event)
       
-      if (!mounted) return
+      if (!mountedRef.current) return
       
       if (event === 'SIGNED_IN' && session?.user) {
         console.log('✅ Usuário logado:', session.user.email)
@@ -213,29 +220,25 @@ export const useAuth = () => {
         })
       } else if (event === 'TOKEN_REFRESHED') {
         console.log('🔄 Token renovado com sucesso')
-        if (session?.user) {
+        // Não recarregar perfil no refresh, apenas manter usuário atual
+        if (session?.user && !authState.user) {
           await loadUserProfile(session.user)
         }
       } else if (event === 'PASSWORD_RECOVERY') {
         console.log('🔑 Recuperação de senha iniciada')
-      } else {
-        console.log('ℹ️ Evento de autenticação não tratado:', event)
       }
     })
 
-    // Inicializar com delay para evitar race conditions
-    const initDelay = setTimeout(() => {
-      initializeAuth()
-    }, 100)
+    // Inicializar imediatamente para acelerar detecção de sessão
+    initializeAuth()
 
     // Cleanup
     return () => {
-      mounted = false
-      clearTimeout(initDelay)
+      mountedRef.current = false
       clearTimeout(initTimeout)
       subscription.unsubscribe()
     }
-  }, []) // Removida dependência loadUserProfile para evitar loop infinito
+  }, [loadUserProfile])
 
   // Função de login
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -257,7 +260,9 @@ export const useAuth = () => {
       
       if (data.user) {
         console.log('✅ Login bem-sucedido')
-        // O listener vai cuidar de carregar o perfil
+        // Definir isAuthenticated imediatamente para redirecionamento instantâneo
+        setAuthState(prev => ({ ...prev, isAuthenticated: true, isLoading: false }))
+        // O listener vai cuidar de carregar o perfil completo
         return { success: true }
       }
       
@@ -278,6 +283,7 @@ export const useAuth = () => {
   const logout = useCallback(async (): Promise<void> => {
     try {
       console.log('🚪 Fazendo logout...')
+      
       await supabase.auth.signOut()
       // O listener vai cuidar de limpar o estado
     } catch (error) {

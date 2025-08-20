@@ -1,18 +1,17 @@
 import { supabase } from './supabase';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 
 /**
- * Cliente de autenticação centralizado com refresh automático de tokens
- * Gerencia sessões, renovação de tokens e interceptação de requisições
+ * Cliente simplificado para requisições autenticadas
+ * Não gerencia estado de autenticação - isso fica com o useAuth
  */
 class AuthClient {
   private static instance: AuthClient;
-  private session: Session | null = null;
   private refreshPromise: Promise<Session | null> | null = null;
   private isRefreshing = false;
 
   private constructor() {
-    this.initializeAuthListener();
+    // Não precisa mais do listener - useAuth cuida disso
   }
 
   /**
@@ -26,50 +25,17 @@ class AuthClient {
   }
 
   /**
-   * Inicializa o listener de mudanças de estado de autenticação
-   * Atualiza automaticamente a sessão quando há mudanças
-   */
-  private initializeAuthListener(): void {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 [AuthClient] Estado de autenticação alterado:', event, session?.user?.email);
-      
-      this.session = session;
-      
-      // Armazena tokens no localStorage para persistência
-      if (session) {
-        console.log(`✅ [AuthClient] Sessão armazenada - Expira em: ${new Date(session.expires_at! * 1000).toLocaleString()}`);
-        localStorage.setItem('supabase_session', JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at: session.expires_at,
-          user: session.user
-        }));
-      } else {
-        console.log('🗑️ [AuthClient] Sessão removida do localStorage');
-        localStorage.removeItem('supabase_session');
-      }
-
-      // Reset refresh state quando sessão muda
-      this.isRefreshing = false;
-      this.refreshPromise = null;
-    });
-  }
-
-  /**
-   * Obtém a sessão atual
+   * Obtém a sessão atual diretamente do Supabase
    */
   public async getCurrentSession(): Promise<Session | null> {
-    if (!this.session) {
-      const { data: { session } } = await supabase.auth.getSession();
-      this.session = session;
-    }
-    return this.session;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session;
   }
 
   /**
    * Obtém o usuário atual
    */
-  public async getCurrentUser(): Promise<User | null> {
+  public async getCurrentUser(): Promise<any> {
     const session = await this.getCurrentSession();
     return session?.user || null;
   }
@@ -92,36 +58,23 @@ class AuthClient {
    */
   private async refreshSession(): Promise<Session | null> {
     try {
-      console.log('🔄 Renovando sessão...');
+      console.log('🔄 [AuthClient] Renovando sessão...');
       
-      // Timeout para refresh de sessão (3 segundos)
-      const refreshPromise = supabase.auth.refreshSession();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout ao renovar sessão')), 3000);
-      });
-
-      const { data, error } = await Promise.race([
-        refreshPromise,
-        timeoutPromise
-      ]) as any;
+      const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
-        console.error('❌ Erro ao renovar sessão:', error);
+        console.error('❌ [AuthClient] Erro ao renovar sessão:', error);
         throw error;
       }
 
       if (data.session && this.isTokenValid(data.session)) {
-        console.log('✅ Sessão renovada com sucesso');
-        this.session = data.session;
+        console.log('✅ [AuthClient] Sessão renovada com sucesso');
         return data.session;
       }
 
       throw new Error('Sessão renovada inválida ou expirada');
     } catch (error) {
-      console.error('❌ Falha ao renovar sessão:', error);
-      // Limpa sessão inválida
-      this.session = null;
-      localStorage.removeItem('supabase_session');
+      console.error('❌ [AuthClient] Falha ao renovar sessão:', error);
       throw error;
     }
   }
@@ -133,7 +86,6 @@ class AuthClient {
     const currentSession = await this.getCurrentSession();
     
     if (!currentSession) {
-      console.log('No current session found');
       return null;
     }
 
@@ -144,7 +96,6 @@ class AuthClient {
 
     // Se já está renovando, aguarda o resultado
     if (this.isRefreshing && this.refreshPromise) {
-      console.log('Refresh already in progress, waiting...');
       return await this.refreshPromise;
     }
 
@@ -220,8 +171,7 @@ class AuthClient {
             return await requestFn(refreshedSession.access_token);
           }
           
-          // Se refresh falhar, redireciona para login
-          this.redirectToLogin();
+          // Se refresh falhar, lança erro para o useAuth tratar
           throw new Error('Sessão expirada e renovação falhou');
         }
         
@@ -231,46 +181,12 @@ class AuthClient {
   }
 
   /**
-   * Faz logout do usuário
+   * Verifica se usuário está autenticado (versão simples)
    */
-  public async signOut(): Promise<void> {
+  public async isAuthenticated(): Promise<boolean> {
     try {
-      await supabase.auth.signOut();
-      this.session = null;
-      localStorage.removeItem('supabase_session');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  }
-
-  /**
-   * Redireciona para página de login
-   */
-  private redirectToLogin(): void {
-    // Remove dados de sessão
-    this.session = null;
-    localStorage.removeItem('supabase_session');
-    
-    // Redireciona para login (ajustar conforme roteamento da aplicação)
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-  }
-
-  /**
-   * Verifica se usuário está autenticado (versão síncrona para uso rápido)
-   */
-  public isAuthenticated(): boolean {
-    return !!(this.session && this.isTokenValid(this.session));
-  }
-
-  /**
-   * Verifica se usuário está autenticado (versão assíncrona com validação completa)
-   */
-  public async isAuthenticatedAsync(): Promise<boolean> {
-    try {
-      const session = await this.getValidSession();
-      return !!session;
+      const session = await this.getCurrentSession();
+      return !!(session && this.isTokenValid(session));
     } catch {
       return false;
     }

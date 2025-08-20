@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { authClient } from '../lib/authClient'
+import { cacheService } from './cacheService'
 import { generateId } from '../utils/generateId'
 import { v4 as uuidv4 } from 'uuid'
 import { API_BASE_URL } from '../config/api'
@@ -51,6 +52,16 @@ export interface ImageListResponse {
 export const imagensService = {
   async listar(userId?: string, clienteId?: string): Promise<ImagemCliente[]> {
     try {
+      // Gerar chave de cache única
+      const cacheKey = `images_${userId || 'all'}_${clienteId || 'all'}`
+      
+      // Verificar cache primeiro
+      const cached = cacheService.get<ImagemCliente[]>(cacheKey)
+      if (cached && Date.now() - ((cached as any)._cacheTime || 0) < 3 * 60 * 1000) { // 3 min cache
+        console.log('✅ [ImagensService] Usando imagens do cache')
+        return cached.filter((img: any) => img && img.id) // Filtrar items válidos
+      }
+      
       let query = supabase
         .from('imagens_clientes')
         .select('*')
@@ -70,10 +81,24 @@ export const imagensService = {
 
       if (error) {
         console.error('Erro ao carregar imagens:', error)
+        
+        // Retornar cache mesmo expirado em caso de erro
+        if (cached) {
+          console.log('⚠️ [ImagensService] Usando cache expirado devido a erro')
+          return cached.filter((img: any) => img && img.id)
+        }
+        
         throw new Error(`Erro ao carregar imagens: ${error.message}`)
       }
 
-      return data || []
+      const images = data || []
+      
+      // Salvar no cache com timestamp
+      const imagesWithCache = Object.assign(images, { _cacheTime: Date.now() }) as ImagemCliente[]
+      cacheService.set(cacheKey, imagesWithCache, 5 * 60 * 1000) // 5 min cache
+      
+      console.log(`✅ [ImagensService] ${images.length} imagens carregadas e salvas no cache`)
+      return images
     } catch (error) {
       console.error('Erro na consulta de imagens:', error)
       throw error
@@ -705,6 +730,9 @@ export const imagensService = {
 
       console.log('✅ [salvarNoSupabase] Imagem salva com sucesso:', savedImage.id);
       
+      // Invalidar cache após salvar nova imagem
+      this.invalidateImageCache(user.id, imageData.clienteId)
+      
       return {
         success: true,
         url: uploadResult.publicUrl,
@@ -718,5 +746,29 @@ export const imagensService = {
         details: error
       };
     }
+  },
+  
+  /**
+   * Invalida cache de imagens relacionado
+   */
+  invalidateImageCache(userId: string, clienteId?: string | null): void {
+    // Chaves de cache a serem invalidadas
+    const keysToInvalidate = [
+      `images_${userId}_all`,
+      `images_all_all`
+    ]
+    
+    if (clienteId) {
+      keysToInvalidate.push(`images_${userId}_${clienteId}`)
+    }
+    
+    keysToInvalidate.forEach(key => {
+      cacheService.delete(key)
+    })
+    
+    // Invalidar também cache de lista de imagens do usuário
+    cacheService.delete(`images_${userId}`)
+    
+    console.log('🗑️ [ImagensService] Cache invalidado para usuário:', userId)
   }
 }

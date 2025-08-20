@@ -9,27 +9,17 @@ const LoginPage = () => {
   const [error, setError] = useState('')
   const [successMessage] = useState('')
   
-  const { login, isAuthenticated, isLoading: authLoading } = useAuthContext()
+  const { login, isAuthenticated } = useAuthContext()
   const navigate = useNavigate()
 
-  // Redirecionar se já autenticado (mas só depois que terminar o loading)
+  // Redirecionar se já autenticado
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (isAuthenticated) {
       navigate('/dashboard')
     }
-  }, [isAuthenticated, authLoading, navigate])
+  }, [isAuthenticated, navigate])
 
-  // Mostrar loading enquanto verifica autenticação inicial
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticação...</p>
-        </div>
-      </div>
-    )
-  }
+  // Não mostrar loading próprio - renderizar formulário imediatamente
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,14 +28,11 @@ const LoginPage = () => {
 
     const result = await login(email, password)
     
-    if (result.success) {
-      // Redirecionar para o dashboard
-      navigate('/dashboard')
-    } else {
+    if (!result.success) {
       setError(result.error || 'Erro no login')
+      setIsLoading(false)
     }
-    
-    setIsLoading(false)
+    // Se sucesso, o useEffect vai redirecionar automaticamente quando isAuthenticated mudar
   }
 
 

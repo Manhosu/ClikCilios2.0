@@ -231,6 +231,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         }
 
+        // Cria assinatura automática para o produto Hotmart 6012952
+        const planoResult = await supabase
+          .from('planos')
+          .select('id')
+          .eq('nome', 'Produto Hotmart 6012952')
+          .single();
+
+        if (planoResult.data) {
+          // Calcula data de fim (30 dias a partir de hoje)
+          const dataFim = new Date();
+          dataFim.setDate(dataFim.getDate() + 30);
+
+          const assinaturaResult = await supabase
+            .from('assinaturas')
+            .insert({
+              user_id: result.user_id,
+              plano_id: planoResult.data.id,
+              status: 'ativa',
+              data_inicio: new Date(),
+              data_fim: dataFim
+            });
+
+          if (assinaturaResult.error) {
+            console.error('❌ Erro ao criar assinatura:', assinaturaResult.error);
+          } else {
+            console.log(`✅ Assinatura criada para usuário ${result.username}`);
+          }
+        }
+
         // Envia email com credenciais
         await sendCredentialsEmail(buyer.email, result.username, password);
         

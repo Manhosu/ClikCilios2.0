@@ -148,6 +148,19 @@ async function loadListImagesHandler() {
   }
 }
 
+// Função para carregar o handler do webhook do Hotmart
+async function loadHotmartWebhookHandler() {
+  try {
+    const { pathToFileURL } = await import('url');
+    const filePath = pathToFileURL('./pages/api/hotmart/webhook.ts').href;
+    const module = await import(filePath);
+    return module.default;
+  } catch (error) {
+    console.error('❌ Erro ao carregar webhook do Hotmart:', error);
+    return null;
+  }
+}
+
 
 
 // Servidor HTTP simples
@@ -231,6 +244,19 @@ const server = http.createServer(async (req, res) => {
         error: 'Erro ao carregar handler da API list-images' 
       }));
     }
+  } else if (parsedUrl.pathname === '/api/hotmart/webhook') {
+    const handler = await loadHotmartWebhookHandler();
+    if (handler) {
+      const nextHandler = createNextApiHandler(handler);
+      await nextHandler(req, res);
+    } else {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ 
+        success: false, 
+        error: 'Erro ao carregar handler do webhook do Hotmart' 
+      }));
+    }
 
   } else {
     res.statusCode = 404;
@@ -247,6 +273,7 @@ server.listen(PORT, () => {
   console.log(`🚀 Servidor de desenvolvimento rodando na porta ${PORT}`);
   console.log(`📡 API save-client-image disponível em http://localhost:${PORT}/api/save-client-image`);
   console.log(`📡 API list-images disponível em http://localhost:${PORT}/api/list-images`);
+  console.log(`🔗 Webhook Hotmart disponível em http://localhost:${PORT}/api/hotmart/webhook`);
 });
 
 server.on('error', (error) => {

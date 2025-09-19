@@ -79,10 +79,10 @@ const AplicarCiliosPage = () => {
 
   // 🎨 ÍCONES POR VARIANTE
   const iconesVariantes = {
-    'Boneca': '👶',
-    'Gatinho': '😸',
-    'Esquilo': '🐿️',
-    'Fox Eyes': '🦊'
+    'Boneca': '',
+    'Gatinho': '',
+    'Esquilo': '',
+    'Fox Eyes': ''
   }
 
   // 🆕 FUNÇÃO SIMPLES PARA TOGGLE EXPAND/COLLAPSE
@@ -444,7 +444,7 @@ const AplicarCiliosPage = () => {
                       className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-all duration-200 hover:shadow-md"
                     >
                       <h3 className="text-lg font-medium text-gray-800 flex items-center">
-                        📋 <span className="ml-2">Estilos Legados</span>
+                        📋 <span className="ml-2">Estilos</span>
                         <span className="ml-2 text-sm text-gray-500">({estilosAntigos.length} opções)</span>
                       </h3>
                       <div className={`text-gray-500 text-lg transition-all duration-400 ease-in-out transform ${
@@ -466,12 +466,6 @@ const AplicarCiliosPage = () => {
                                 : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'
                             }`}
                           >
-                            <div className="absolute top-2 left-2">
-                              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                                📋 Legado
-                              </span>
-                            </div>
-
                             <div className="w-16 h-12 mx-auto mb-3 relative bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg overflow-hidden shadow-inner">
                               <img
                                 src={estilo.overlayPath}
@@ -539,11 +533,6 @@ const AplicarCiliosPage = () => {
                                       : 'border-gray-200 hover:border-primary-300'
                                   }`}
                                 >
-                                  <div className="absolute top-1 right-1">
-                                    <span className="text-xs bg-green-100 text-green-600 px-1 py-0.5 rounded">
-                                      ✨
-                                    </span>
-                                  </div>
 
                                   <div className="w-full h-2/3 flex items-center justify-center mb-2">
                                     <img

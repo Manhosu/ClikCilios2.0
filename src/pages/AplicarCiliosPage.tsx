@@ -22,6 +22,17 @@ const AplicarCiliosPage = () => {
   const [erro, setErro] = useState<string>('')
   const [salvandoImagem, setSalvandoImagem] = useState(false)
 
+  // 🆕 ESTADOS PARA EXPAND/COLLAPSE - INICIALIZAÇÃO SIMPLES
+  const [secaoExpandida, setSecaoExpandida] = useState<Record<string, boolean>>(() => ({
+    'estilos-antigos': true,
+    'classico': true,
+    'brasileiro': true,
+    'egipcio': true,
+    'fox-eyes': true,
+    'hibrido': true,
+    'mega': true
+  }))
+
   const estilosCilios = getEstilosCilios()
 
   // 🔄 ESTILOS ANTIGOS (formato estático - cilios_name)
@@ -68,11 +79,44 @@ const AplicarCiliosPage = () => {
 
   // 🎨 ÍCONES POR VARIANTE
   const iconesVariantes = {
-    'Boneca': '',
-    'Gatinho': '',
-    'Esquilo': '',
-    'Fox Eyes': ''
+    'Boneca': '👶',
+    'Gatinho': '😸',
+    'Esquilo': '🐿️',
+    'Fox Eyes': '🦊'
   }
+
+  // 🆕 FUNÇÃO SIMPLES PARA TOGGLE EXPAND/COLLAPSE
+  const toggleSecao = useCallback((secaoId: string) => {
+    setSecaoExpandida(prev => ({
+      ...prev,
+      [secaoId]: !prev[secaoId]
+    }))
+  }, [])
+
+  // 🎭 COMPONENTE DE SLIDE-DOWN PERFEITO
+  const SlideDownContent = ({ isOpen, children, className = '' }: { 
+    isOpen: boolean
+    children: React.ReactNode 
+    className?: string
+  }) => (
+    <div 
+      className={`overflow-hidden transition-all duration-400 ease-in-out ${
+        isOpen 
+          ? 'max-h-screen opacity-100' 
+          : 'max-h-0 opacity-0'
+      } ${className}`}
+    >
+      <div className={`transition-all duration-400 ease-in-out ${
+        isOpen 
+          ? 'transform translate-y-0' 
+          : 'transform -translate-y-4'
+      }`}>
+        <div className="pt-4">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -385,136 +429,152 @@ const AplicarCiliosPage = () => {
               </div>
             </div>
 
-            {/* 🆕 SELETOR DE ESTILO HIERÁRQUICO */}
+            {/* 🆕 SELETOR DE ESTILO COM SLIDE-DOWN PERFEITO */}
             <div className="card-elegant p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 💄 2. Escolha o Estilo
               </h2>
               
-              <div className="space-y-8">
-                {/* 🔄 SEÇÃO ESTILOS ANTIGOS (formato estático) */}
+              <div className="space-y-6">
+                {/* 🔄 SEÇÃO ESTILOS ANTIGOS COM SLIDE-DOWN */}
                 {estilosAntigos.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="border-b border-gray-200 pb-2">
+                  <div className="space-y-0">
+                    <button
+                      onClick={() => toggleSecao('estilos-antigos')}
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 hover:from-blue-100 hover:to-indigo-100 transition-all duration-200 hover:shadow-md"
+                    >
                       <h3 className="text-lg font-medium text-gray-800 flex items-center">
-                        📋 <span className="ml-2">Estilos Clássicos Legados</span>
+                        📋 <span className="ml-2">Estilos Legados</span>
                         <span className="ml-2 text-sm text-gray-500">({estilosAntigos.length} opções)</span>
                       </h3>
-                    </div>
+                      <div className={`text-gray-500 text-lg transition-all duration-400 ease-in-out transform ${
+                        secaoExpandida['estilos-antigos'] ? 'rotate-90' : 'rotate-0'
+                      }`}>
+                        ▶
+                      </div>
+                    </button>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {estilosAntigos.map((estilo) => (
-                        <button
-                          key={estilo.id}
-                          onClick={() => handleEstiloClick(estilo.id)}
-                          className={`p-4 rounded-2xl border-2 transition-all hover:scale-105 group relative overflow-hidden ${
-                            estiloSelecionado === estilo.id
-                              ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-secondary-50 ring-2 ring-primary-200 shadow-lg'
-                              : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'
-                          }`}
-                        >
-                          <div className="absolute top-2 left-2">
-                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
-                              📋 Legado
-                            </span>
-                          </div>
-
-                          <div className="w-16 h-12 mx-auto mb-3 relative bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg overflow-hidden shadow-inner">
-                            <img
-                              src={estilo.overlayPath}
-                              alt={`Preview ${estilo.nome}`}
-                              className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform"
-                            />
-                          </div>
-                          
-                          <div className="text-sm font-medium text-gray-900 leading-tight">{estilo.nome}</div>
-                          <div className="text-xs text-gray-600 mt-1">{estilo.descricao}</div>
-                          
-                          {estiloSelecionado === estilo.id && (
-                            <div className="mt-3 text-xs text-primary-600 font-medium bg-primary-100 px-2 py-1 rounded-lg">
-                              ✓ Selecionado
+                    <SlideDownContent isOpen={secaoExpandida['estilos-antigos']}>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {estilosAntigos.map((estilo) => (
+                          <button
+                            key={estilo.id}
+                            onClick={() => handleEstiloClick(estilo.id)}
+                            className={`p-4 rounded-2xl border-2 transition-all duration-200 hover:scale-105 group relative overflow-hidden ${
+                              estiloSelecionado === estilo.id
+                                ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-secondary-50 ring-2 ring-primary-200 shadow-lg'
+                                : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'
+                            }`}
+                          >
+                            <div className="absolute top-2 left-2">
+                              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                                📋 Legado
+                              </span>
                             </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
+
+                            <div className="w-16 h-12 mx-auto mb-3 relative bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg overflow-hidden shadow-inner">
+                              <img
+                                src={estilo.overlayPath}
+                                alt={`Preview ${estilo.nome}`}
+                                className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-200"
+                              />
+                            </div>
+                            
+                            <div className="text-sm font-medium text-gray-900 leading-tight">{estilo.nome}</div>
+                            <div className="text-xs text-gray-600 mt-1">{estilo.descricao}</div>
+                            
+                            {estiloSelecionado === estilo.id && (
+                              <div className="mt-3 text-xs text-primary-600 font-medium bg-primary-100 px-2 py-1 rounded-lg animate-pulse">
+                                ✓ Selecionado
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </SlideDownContent>
                   </div>
                 )}
 
-                {/* 🆕 SEÇÃO ESTILOS HIERÁRQUICOS (6 tipos) */}
+                {/* 🆕 SEÇÕES HIERÁRQUICAS COM SLIDE-DOWN PERFEITO */}
                 {Object.entries(estilosHierarquicos).map(([tipo, variantesPorTipo]) => (
-                  <div key={tipo} className="space-y-6">
-                    {/* TÍTULO DO TIPO */}
-                    <div className="border-b-2 border-gradient-to-r from-primary-500 to-secondary-500 pb-3">
+                  <div key={tipo} className="space-y-0">
+                    <button
+                      onClick={() => toggleSecao(tipo.toLowerCase())}
+                      className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:from-gray-100 hover:to-gray-150 transition-all duration-200 hover:shadow-md"
+                    >
                       <h3 className="text-xl font-bold text-gray-800 flex items-center">
                         <span className="text-2xl mr-3">{iconesTypes[tipo as keyof typeof iconesTypes] || '💄'}</span>
                         <span>Cílios Volume {tipo}</span>
+                        <span className="ml-3 text-sm text-gray-500 font-normal">
+                          ({Object.values(variantesPorTipo).reduce((total, estilos) => total + estilos.length, 0)} opções)
+                        </span>
                       </h3>
-                    </div>
-
-                    {/* VARIANTES DO TIPO */}
-                    {Object.entries(variantesPorTipo).map(([variante, estilosVariante]) => (
-                      <div key={`${tipo}-${variante}`} className="space-y-4">
-                        {/* SUBTÍTULO DA VARIANTE */}
-                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-xl">
-                          <h4 className="text-lg font-semibold text-gray-700 flex items-center">
-                            <span className="text-xl mr-2">{iconesVariantes[variante as keyof typeof iconesVariantes] || ''}</span>
-                            <span>{tipo} {variante}</span>
-                            <span className="ml-auto text-sm text-gray-500">({estilosVariante.length} variações)</span>
-                          </h4>
-                        </div>
-
-                        {/* GRID DE TAMANHOS E CURVATURAS */}
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                          {estilosVariante.map((estilo) => (
-                            <button
-                              key={estilo.id}
-                              onClick={() => handleEstiloClick(estilo.id)}
-                              className={`aspect-square p-3 rounded-xl border-2 transition-all hover:scale-105 group relative ${
-                                estiloSelecionado === estilo.id
-                                  ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-200'
-                                  : 'border-gray-200 hover:border-primary-300'
-                              }`}
-                            >
-                              {/* Badge do tamanho e curvatura */}
-                              <div className="absolute top-1 right-1">
-                                <span className="text-xs bg-green-100 text-green-600 px-1 py-0.5 rounded">
-                                  ✨
-                                </span>
-                              </div>
-
-                              {/* Preview centralizado */}
-                              <div className="w-full h-2/3 flex items-center justify-center mb-2">
-                                <img
-                                  src={estilo.overlayPath}
-                                  alt={`${estilo.mapping} ${estilo.tamanho}${estilo.curvatura}`}
-                                  className="max-w-full max-h-full object-contain"
-                                />
-                              </div>
-
-                              {/* Label compacto */}
-                              <div className="text-xs font-bold text-gray-700 text-center">
-                                {estilo.tamanho}{estilo.curvatura}
-                              </div>
-
-                              {/* Indicador selecionado */}
-                              {estiloSelecionado === estilo.id && (
-                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center">
-                                  <span className="text-xs text-white">✓</span>
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
+                      <div className={`text-gray-500 text-xl transition-all duration-400 ease-in-out transform ${
+                        secaoExpandida[tipo.toLowerCase()] ? 'rotate-90' : 'rotate-0'
+                      }`}>
+                        ▶
                       </div>
-                    ))}
+                    </button>
+
+                    <SlideDownContent isOpen={secaoExpandida[tipo.toLowerCase()]}>
+                      <div className="space-y-6">
+                        {Object.entries(variantesPorTipo).map(([variante, estilosVariante]) => (
+                          <div key={`${tipo}-${variante}`} className="space-y-4">
+                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-xl">
+                              <h4 className="text-lg font-semibold text-gray-700 flex items-center">
+                                <span className="text-xl mr-2">{iconesVariantes[variante as keyof typeof iconesVariantes] || '💫'}</span>
+                                <span>{tipo} {variante}</span>
+                                <span className="ml-auto text-sm text-gray-500">({estilosVariante.length} variações)</span>
+                              </h4>
+                            </div>
+
+                            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                              {estilosVariante.map((estilo) => (
+                                <button
+                                  key={estilo.id}
+                                  onClick={() => handleEstiloClick(estilo.id)}
+                                  className={`aspect-square p-3 rounded-xl border-2 transition-all duration-200 hover:scale-105 group relative ${
+                                    estiloSelecionado === estilo.id
+                                      ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-200'
+                                      : 'border-gray-200 hover:border-primary-300'
+                                  }`}
+                                >
+                                  <div className="absolute top-1 right-1">
+                                    <span className="text-xs bg-green-100 text-green-600 px-1 py-0.5 rounded">
+                                      ✨
+                                    </span>
+                                  </div>
+
+                                  <div className="w-full h-2/3 flex items-center justify-center mb-2">
+                                    <img
+                                      src={estilo.overlayPath}
+                                      alt={`${estilo.mapping} ${estilo.tamanho}${estilo.curvatura}`}
+                                      className="max-w-full max-h-full object-contain transition-transform duration-200 group-hover:scale-110"
+                                    />
+                                  </div>
+
+                                  <div className="text-xs font-bold text-gray-700 text-center">
+                                    {estilo.tamanho}{estilo.curvatura}
+                                  </div>
+
+                                  {estiloSelecionado === estilo.id && (
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center animate-bounce">
+                                      <span className="text-xs text-white">✓</span>
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </SlideDownContent>
                   </div>
                 ))}
 
-                {/* MENSAGEM SE NÃO HOUVER ESTILOS */}
                 {Object.keys(estilosHierarquicos).length === 0 && estilosAntigos.length === 0 && (
                   <div className="text-center py-12 text-gray-500">
-                    <div className="text-4xl mb-4">📦</div>
+                    <div className="text-4xl mb-4 animate-bounce">📦</div>
                     <p className="font-medium">Nenhum estilo encontrado</p>
                     <p className="text-sm mt-2">Adicione estilos no arquivo aiService.ts</p>
                   </div>
@@ -537,7 +597,6 @@ const AplicarCiliosPage = () => {
                 {processando ? '🔄 Processando com IA...' : '✨ Aplicar Cílios'}
               </Button>
 
-              {/* Barra de Progresso */}
               {processando && (
                 <div className="mt-6">
                   <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -561,7 +620,6 @@ const AplicarCiliosPage = () => {
                 🎭 3. Resultado
               </h2>
               
-              {/* Estado Inicial */}
               {!imagemOriginal && !resultado && (
                 <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center">
                   <div className="text-center text-gray-500">
@@ -572,7 +630,6 @@ const AplicarCiliosPage = () => {
                 </div>
               )}
 
-              {/* Aguardando Processamento */}
               {imagemOriginal && !resultado && !processando && (
                 <div className="aspect-square bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-primary-300">
                   <div className="text-center text-gray-600">
@@ -587,7 +644,6 @@ const AplicarCiliosPage = () => {
                 </div>
               )}
 
-              {/* Processando */}
               {processando && (
                 <div className="aspect-square bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl flex items-center justify-center">
                   <div className="text-center text-gray-600">
@@ -604,7 +660,6 @@ const AplicarCiliosPage = () => {
                 </div>
               )}
 
-              {/* Resultado Concluído */}
               {resultado && resultado.status === 'concluido' && (
                 <div className="space-y-6">
                   <div className="relative group">
@@ -630,7 +685,6 @@ const AplicarCiliosPage = () => {
                     )}
                   </div>
                   
-                  {/* Informações Simplificadas */}
                   <div className="text-sm text-gray-600 bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-2xl">
                     <p className="flex items-center mb-2">
                       <span className="text-primary-600 mr-2">💄</span>
@@ -644,7 +698,6 @@ const AplicarCiliosPage = () => {
                     </p>
                   </div>
 
-                  {/* Botões de Ação */}
                   <div className="space-y-4">
                     <div className="flex space-x-4">
                       <Button 
@@ -681,7 +734,6 @@ const AplicarCiliosPage = () => {
                 </div>
               )}
 
-              {/* Resultado com Erro */}
               {resultado && resultado.status === 'erro' && (
                 <div className="aspect-square bg-gradient-to-br from-red-50 to-red-100 rounded-2xl flex items-center justify-center border border-red-200">
                   <div className="text-center text-red-600">

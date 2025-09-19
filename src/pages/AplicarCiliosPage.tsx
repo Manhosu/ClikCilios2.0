@@ -1,13 +1,13 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getEstilosCilios, downloadProcessedImage, type ProcessamentoIA } from '../services/aiService'
+import { getEstilosCilios, downloadProcessedImage, isNewFormat, prepareAPIPayload, type ProcessamentoIA } from '../services/aiService'
 import { imagensService } from '../services/imagensService'
 import { cacheService } from '../services/cacheService'
 import { useAuthContext } from '../hooks/useAuthContext'
-// import { useDataContext } from '../contexts/DataContext' // Removido: não utilizado após implementação do sistema de eventos
 import { authClient } from '../lib/authClient'
 import Button from '../components/Button'
 import { toast } from 'react-hot-toast'
+import { EstiloCilio } from '../services/aiService'
 
 const AplicarCiliosPage = () => {
   const navigate = useNavigate()
@@ -22,19 +22,61 @@ const AplicarCiliosPage = () => {
   const [erro, setErro] = useState<string>('')
   const [salvandoImagem, setSalvandoImagem] = useState(false)
 
-  
   const estilosCilios = getEstilosCilios()
 
-  // Configurações removidas pois não há mais salvamento automático
+  // 🔄 ESTILOS ANTIGOS (formato estático - cilios_name)
+  const estilosAntigos = useMemo(() => {
+    return estilosCilios.filter(estilo => !isNewFormat(estilo))
+  }, [estilosCilios])
 
-  // Função removida para evitar salvamento duplicado
+  // 🆕 ESTILOS NOVOS (formato dinâmico - campos separados)
+  const estilosNovos = useMemo(() => {
+    return estilosCilios.filter(estilo => isNewFormat(estilo))
+  }, [estilosCilios])
 
-  // Logs de debug removidos para produção
+  // 🆕 ESTRUTURA HIERÁRQUICA: Tipo > Variante > Tamanhos/Curvaturas
+  const estilosHierarquicos = useMemo(() => {
+    const hierarquia: Record<string, Record<string, EstiloCilio[]>> = {}
+    
+    estilosNovos.forEach(estilo => {
+      const tipo = estilo.estilo_base! // Classico, Brasileiro, etc.
+      const variante = estilo.mapping! // Boneca, Gatinho, Esquilo, etc.
+      
+      if (!hierarquia[tipo]) {
+        hierarquia[tipo] = {}
+      }
+      
+      if (!hierarquia[tipo][variante]) {
+        hierarquia[tipo][variante] = []
+      }
+      
+      hierarquia[tipo][variante].push(estilo)
+    })
+    
+    return hierarquia
+  }, [estilosNovos])
+
+  // 🎨 ÍCONES POR TIPO
+  const iconesTypes = {
+    'Classico': '✨',
+    'Brasileiro': '🇧🇷',
+    'Egipcio': '🏺',
+    'Fox Eyes': '🦊',
+    'Hibrido': '🎭',
+    'Mega': '💥'
+  }
+
+  // 🎨 ÍCONES POR VARIANTE
+  const iconesVariantes = {
+    'Boneca': '',
+    'Gatinho': '',
+    'Esquilo': '',
+    'Fox Eyes': ''
+  }
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      // Validações básicas
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png']
       const maxSize = 100 * 1024 * 1024 // 100MB
       
@@ -48,7 +90,6 @@ const AplicarCiliosPage = () => {
         return
       }
 
-      // Salvar arquivo e preview
       setArquivoOriginal(file)
       setErro('')
       setResultado(null)
@@ -58,8 +99,6 @@ const AplicarCiliosPage = () => {
         setImagemOriginal(e.target?.result as string)
       }
       reader.readAsDataURL(file)
-      
-      // Arquivo carregado com sucesso
     }
   }
 
@@ -69,7 +108,7 @@ const AplicarCiliosPage = () => {
     if (resultado) {
       setResultado(null)
     }
-  }, [estiloSelecionado, resultado])
+  }, [resultado])
 
   const handleAplicarCilios = async () => {
     if (!arquivoOriginal || !estiloSelecionado) {
@@ -82,9 +121,31 @@ const AplicarCiliosPage = () => {
     setErro('')
     setResultado(null)
 
-    const formData = new FormData()
-    formData.append('file', arquivoOriginal)
-    formData.append('cilios_name', estiloSelecionado.replace(/-/g, '_'))
+    const estilo = estilosCilios.find(e => e.id === estiloSelecionado)
+    
+    if (!estilo) {
+      setErro('Estilo não encontrado')
+      setProcessando(false)
+      return
+    }
+
+    const formData = prepareAPIPayload(estilo, arquivoOriginal)
+
+    // 📊 LOG DE DEBUG
+    if (isNewFormat(estilo)) {
+      console.log('📤 Enviando para API (NOVO formato):', {
+        estilo_base: estilo.estilo_base,
+        mapping: estilo.mapping,
+        tamanho: estilo.tamanho,
+        curvatura: estilo.curvatura,
+        backend_monta: `${estilo.estilo_base}_${estilo.mapping}_${estilo.tamanho}_${estilo.curvatura}`
+      })
+    } else {
+      console.log('📤 Enviando para API (formato ANTIGO):', {
+        cilios_name: estilo.codigo.replace(/-/g, '_'),
+        formato: 'legacy'
+      })
+    }
 
     try {
       const response = await fetch('https://dsv.zironite.uk/apply', {
@@ -103,19 +164,16 @@ const AplicarCiliosPage = () => {
       reader.onloadend = async () => {
         const base64data = reader.result as string
         const resultadoProcessamento = {
-          imagemOriginal: imagemOriginal!, // se estiver garantido
+          imagemOriginal: imagemOriginal!,
           estiloSelecionado,
           imagemProcessada: base64data,
           status: 'concluido' as const,
-          // tempoProcessamento: undefined, // pode omitir
-          // metadata: undefined,           // pode omitir
         }
         setResultado(resultadoProcessamento)
       }
       reader.readAsDataURL(blob)
 
     } catch (error: any) {
-      // Erro no processamento
       setErro(error.message || 'Erro interno. Tente novamente.')
       setResultado({
         imagemOriginal: imagemOriginal!,
@@ -128,8 +186,6 @@ const AplicarCiliosPage = () => {
       setProgresso(0)
     }
   }
-
-
 
   const handleDownload = () => {
     if (resultado?.imagemProcessada) {
@@ -155,7 +211,6 @@ const AplicarCiliosPage = () => {
     setSalvandoImagem(true)
     
     try {
-      // Verificar autenticação antes de salvar
       const isAuth = await authClient.isAuthenticated()
       if (!isAuth) {
         toast.error('Sessão expirada. Faça login novamente.')
@@ -164,7 +219,6 @@ const AplicarCiliosPage = () => {
         return
       }
 
-      // Converter base64 para File
       const response = await fetch(resultado.imagemProcessada)
       const blob = await response.blob()
       
@@ -173,7 +227,6 @@ const AplicarCiliosPage = () => {
       
       const file = new File([blob], nomeArquivo, { type: 'image/jpeg' })
       
-      // Salvar no Supabase Storage
       try {
         console.log('[AplicarCilios] Iniciando upload da imagem processada');
         const uploadResult = await imagensService.uploadToStorage(file, user.id);
@@ -183,10 +236,8 @@ const AplicarCiliosPage = () => {
           metadata: uploadResult.metadata
         });
         
-        // Gerar um UUID válido para cliente_id (cliente padrão)
-        const clienteId = '00000000-0000-0000-0000-000000000000'; // UUID nulo padrão
+        const clienteId = '00000000-0000-0000-0000-000000000000';
         
-        // Salvar metadados na tabela imagens_clientes
         const imagemData = {
           cliente_id: clienteId,
           user_id: user.id,
@@ -208,14 +259,12 @@ const AplicarCiliosPage = () => {
         
         console.log('[AplicarCilios] Imagem salva com sucesso no Supabase Storage');
         
-        // Invalidar cache e notificar outras páginas sobre nova imagem
         if (user?.id) {
           cacheService.invalidateImagesCache(user.id, 'created');
         }
         
         toast.success('✅ Imagem salva na galeria!');
         
-        // Redirecionamento automático após salvamento
         setTimeout(() => {
           navigate('/minhas-imagens')
         }, 1500)
@@ -231,7 +280,6 @@ const AplicarCiliosPage = () => {
       console.error('❌ [handleSalvarImagem] Erro crítico:', error)
       setSalvandoImagem(false)
       
-      // Verificar se é erro de autenticação
       if (error instanceof Error) {
         if (error.message.includes('autenticação') || error.message.includes('login')) {
           toast.error('🔒 Sessão expirada - redirecionando para login...')
@@ -288,8 +336,6 @@ const AplicarCiliosPage = () => {
           </div>
         )}
 
-
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Coluna da Esquerda - Upload e Controles */}
           <div className="space-y-6">
@@ -324,7 +370,7 @@ const AplicarCiliosPage = () => {
                       <div>
                         <p className="text-lg font-medium text-gray-900">Faça upload da foto</p>
                         <p className="text-sm text-gray-600">Clique aqui ou arraste uma imagem</p>
-                        <p className="text-xs text-gray-500 mt-2">Formatos: JPEG, PNG (Max: 10MB)</p>
+                        <p className="text-xs text-gray-500 mt-2">Formatos: JPEG, PNG (Max: 100MB)</p>
                       </div>
                     </div>
                   )}
@@ -339,64 +385,138 @@ const AplicarCiliosPage = () => {
               </div>
             </div>
 
-            {/* Seletor de Estilo */}
+            {/* 🆕 SELETOR DE ESTILO HIERÁRQUICO */}
             <div className="card-elegant p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                 💄 2. Escolha o Estilo
               </h2>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {estilosCilios.length > 0 ? (
-                  estilosCilios.map((estilo) => (
-                    <button
-                      key={estilo.id}
-                      onClick={() => {
-                        handleEstiloClick(estilo.id)
-                      }}
-                      className={`p-4 rounded-2xl border-2 transition-all hover:scale-105 group relative overflow-hidden ${
-                        estiloSelecionado === estilo.id
-                          ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-secondary-50 ring-2 ring-primary-200 shadow-lg'
-                          : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'
-                      }`}
-                    >
-                      {/* 🖼️ PREVIEW REAL DO PNG */}
-                      <div className="w-16 h-12 mx-auto mb-3 relative bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg overflow-hidden shadow-inner">
-                        <img
-                          src={estilo.overlayPath}
-                          alt={`Preview ${estilo.nome}`}
-                          className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform"
-                          onLoad={() => {}}
-                          onError={(e) => {
-                            // Fallback para emoji se o PNG não carregar
-                            e.currentTarget.style.display = 'none'
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                          }}
-                        />
-                        {/* Fallback emoji (oculto por padrão) */}
-                        <div className="hidden absolute inset-0 flex items-center justify-center text-2xl">
-                          {estilo.thumbnail}
+              <div className="space-y-8">
+                {/* 🔄 SEÇÃO ESTILOS ANTIGOS (formato estático) */}
+                {estilosAntigos.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="border-b border-gray-200 pb-2">
+                      <h3 className="text-lg font-medium text-gray-800 flex items-center">
+                        📋 <span className="ml-2">Estilos Clássicos Legados</span>
+                        <span className="ml-2 text-sm text-gray-500">({estilosAntigos.length} opções)</span>
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {estilosAntigos.map((estilo) => (
+                        <button
+                          key={estilo.id}
+                          onClick={() => handleEstiloClick(estilo.id)}
+                          className={`p-4 rounded-2xl border-2 transition-all hover:scale-105 group relative overflow-hidden ${
+                            estiloSelecionado === estilo.id
+                              ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-secondary-50 ring-2 ring-primary-200 shadow-lg'
+                              : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'
+                          }`}
+                        >
+                          <div className="absolute top-2 left-2">
+                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                              📋 Legado
+                            </span>
+                          </div>
+
+                          <div className="w-16 h-12 mx-auto mb-3 relative bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg overflow-hidden shadow-inner">
+                            <img
+                              src={estilo.overlayPath}
+                              alt={`Preview ${estilo.nome}`}
+                              className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform"
+                            />
+                          </div>
+                          
+                          <div className="text-sm font-medium text-gray-900 leading-tight">{estilo.nome}</div>
+                          <div className="text-xs text-gray-600 mt-1">{estilo.descricao}</div>
+                          
+                          {estiloSelecionado === estilo.id && (
+                            <div className="mt-3 text-xs text-primary-600 font-medium bg-primary-100 px-2 py-1 rounded-lg">
+                              ✓ Selecionado
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 🆕 SEÇÃO ESTILOS HIERÁRQUICOS (6 tipos) */}
+                {Object.entries(estilosHierarquicos).map(([tipo, variantesPorTipo]) => (
+                  <div key={tipo} className="space-y-6">
+                    {/* TÍTULO DO TIPO */}
+                    <div className="border-b-2 border-gradient-to-r from-primary-500 to-secondary-500 pb-3">
+                      <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                        <span className="text-2xl mr-3">{iconesTypes[tipo as keyof typeof iconesTypes] || '💄'}</span>
+                        <span>Cílios Volume {tipo}</span>
+                      </h3>
+                    </div>
+
+                    {/* VARIANTES DO TIPO */}
+                    {Object.entries(variantesPorTipo).map(([variante, estilosVariante]) => (
+                      <div key={`${tipo}-${variante}`} className="space-y-4">
+                        {/* SUBTÍTULO DA VARIANTE */}
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-xl">
+                          <h4 className="text-lg font-semibold text-gray-700 flex items-center">
+                            <span className="text-xl mr-2">{iconesVariantes[variante as keyof typeof iconesVariantes] || ''}</span>
+                            <span>{tipo} {variante}</span>
+                            <span className="ml-auto text-sm text-gray-500">({estilosVariante.length} variações)</span>
+                          </h4>
+                        </div>
+
+                        {/* GRID DE TAMANHOS E CURVATURAS */}
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                          {estilosVariante.map((estilo) => (
+                            <button
+                              key={estilo.id}
+                              onClick={() => handleEstiloClick(estilo.id)}
+                              className={`aspect-square p-3 rounded-xl border-2 transition-all hover:scale-105 group relative ${
+                                estiloSelecionado === estilo.id
+                                  ? 'border-primary-500 bg-primary-50 shadow-md ring-2 ring-primary-200'
+                                  : 'border-gray-200 hover:border-primary-300'
+                              }`}
+                            >
+                              {/* Badge do tamanho e curvatura */}
+                              <div className="absolute top-1 right-1">
+                                <span className="text-xs bg-green-100 text-green-600 px-1 py-0.5 rounded">
+                                  ✨
+                                </span>
+                              </div>
+
+                              {/* Preview centralizado */}
+                              <div className="w-full h-2/3 flex items-center justify-center mb-2">
+                                <img
+                                  src={estilo.overlayPath}
+                                  alt={`${estilo.mapping} ${estilo.tamanho}${estilo.curvatura}`}
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              </div>
+
+                              {/* Label compacto */}
+                              <div className="text-xs font-bold text-gray-700 text-center">
+                                {estilo.tamanho}{estilo.curvatura}
+                              </div>
+
+                              {/* Indicador selecionado */}
+                              {estiloSelecionado === estilo.id && (
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center">
+                                  <span className="text-xs text-white">✓</span>
+                                </div>
+                              )}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                      
-                      <div className="text-sm font-medium text-gray-900 leading-tight">{estilo.nome}</div>
-                      <div className="text-xs text-gray-600 mt-1">{estilo.descricao}</div>
-                      
-                      {estiloSelecionado === estilo.id && (
-                        <div className="mt-3 text-xs text-primary-600 font-medium bg-primary-100 px-2 py-1 rounded-lg">
-                          ✓ Selecionado
-                        </div>
-                      )}
-                      
-                      {/* 💫 Efeito brilho para indicar qualidade */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-pulse"></div>
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="col-span-3 p-8 text-center text-gray-500">
-                    <div className="text-4xl mb-2">⏳</div>
-                    <p>Carregando estilos...</p>
+                    ))}
+                  </div>
+                ))}
+
+                {/* MENSAGEM SE NÃO HOUVER ESTILOS */}
+                {Object.keys(estilosHierarquicos).length === 0 && estilosAntigos.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="text-4xl mb-4">📦</div>
+                    <p className="font-medium">Nenhum estilo encontrado</p>
+                    <p className="text-sm mt-2">Adicione estilos no arquivo aiService.ts</p>
                   </div>
                 )}
               </div>
@@ -493,8 +613,6 @@ const AplicarCiliosPage = () => {
                         src={resultado.imagemProcessada}
                         alt="Resultado com cílios aplicados"
                         className="w-full rounded-2xl shadow-lg group-hover:shadow-xl transition-shadow"
-                        onLoad={() => {}}
-                        onError={() => {}}
                       />
                     ) : (
                       <div className="w-full aspect-square bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl flex items-center justify-center border border-yellow-200">
@@ -510,7 +628,6 @@ const AplicarCiliosPage = () => {
                         </div>
                       </div>
                     )}
-
                   </div>
                   
                   {/* Informações Simplificadas */}

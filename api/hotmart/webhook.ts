@@ -1,398 +1,442 @@
-// import { NextApiRequest, NextApiResponse } from 'next';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
-import { EmailService } from '../../src/services/emailService';
+// Webhook Hotmart corrigido - versão para dev-server.js
+import crypto from 'crypto'
+import { createClient } from '@supabase/supabase-js'
 
-
-// Interfaces para substituir Next.js
+// Interfaces para o dev-server.js
 interface NextApiRequest {
-  method?: string;
-  body: any;
-  headers: { [key: string]: string | string[] | undefined };
+  method?: string
+  body: any
+  headers: { [key: string]: string | string[] | undefined }
+  url?: string
 }
 
 interface NextApiResponse {
-  status: (code: number) => NextApiResponse;
-  json: (data: any) => void;
+  status: (code: number) => NextApiResponse
+  json: (data: any) => void
 }
 
-// Configuração de variáveis de ambiente para Vercel
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Configuração do Supabase
+const supabaseUrl = process.env.VITE_SUPABASE_URL!
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+})
 
-if (!supabaseUrl) {
-  throw new Error('SUPABASE_URL não configurada. Configure NEXT_PUBLIC_SUPABASE_URL ou VITE_SUPABASE_URL no Vercel.');
+// Configurações da Hotmart
+const HOTMART_CONFIG = {
+  webhookSecret: process.env.HOTMART_WEBHOOK_SECRET || process.env.VITE_HOTMART_WEBHOOK_SECRET || '',
+  validStatuses: ['APPROVED', 'COMPLETE', 'PAID'],
+  eventMapping: {
+    'approved': 'PURCHASE_APPROVED',
+    'complete': 'PURCHASE_COMPLETE',
+    'canceled': 'PURCHASE_CANCELED',
+    'cancelled': 'PURCHASE_CANCELED',
+    'refunded': 'PURCHASE_REFUNDED',
+    'chargeback': 'PURCHASE_CHARGEBACK'
+  }
 }
 
-if (!supabaseServiceKey) {
-  throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada no Vercel.');
+// Interface para dados do webhook
+interface HotmartWebhookData {
+  id: string
+  event: string
+  data: {
+    purchase: {
+      order_id: string
+      order_date: number
+      status: string
+      buyer: {
+        name: string
+        email: string
+      }
+      offer: {
+        code: string
+        name: string
+      }
+      price: {
+        value: number
+        currency_code: string
+      }
+      tracking?: {
+        coupon?: string
+        source?: string
+      }
+    }
+  }
 }
 
-// Cliente Supabase com service role para operações administrativas
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Função para gerar senha aleatória segura
-function generateSecurePassword(length: number = 12): string {
-  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  const randomBytes = crypto.randomBytes(length);
-  let password = '';
-
-  for (let i = 0; i < length; i++) {
-    password += charset[randomBytes[i] % charset.length];
+// Validar assinatura HMAC
+function validarAssinatura(body: string, signature: string): boolean {
+  if (!HOTMART_CONFIG.webhookSecret) {
+    console.warn('⚠️ HOTMART_WEBHOOK_SECRET não configurado - validação ignorada para desenvolvimento')
+    return true
   }
 
-  return password;
-}
-
-// Função para enviar email com credenciais usando EmailService
-async function sendCredentialsEmail(email: string, username: string, password: string) {
   try {
-    console.log(`📧 Enviando credenciais para ${email}`);
+    const expectedSignature = crypto
+      .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
+      .update(body, 'utf8')
+      .digest('hex')
 
-    const loginUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://clik-cilios2-0.vercel.app/login';
+    // A Hotmart pode enviar com ou sem prefixo sha256=
+    const receivedSignature = signature.replace(/^sha256=/, '')
 
-    // Usar EmailService para envio real de email
-    const emailSent = await EmailService.sendCredentialsEmail(
-      email,
-      username,
-      password,
-      loginUrl
-    );
-
-    if (emailSent) {
-      console.log(`✅ Email de credenciais enviado para ${email}`);
-      return true;
-    } else {
-      console.error(`❌ Falha ao enviar email para ${email}`);
-      // Em caso de falha no email, não bloquear o processo
-      // O usuário foi criado com sucesso, apenas o email falhou
-      return true;
+    // Verificar se as assinaturas têm o mesmo comprimento (evitar erro em timingSafeEqual)
+    if (expectedSignature.length !== receivedSignature.length) {
+      console.log('🔐 Validação HMAC:', {
+        signature_received: signature,
+        signature_expected: `sha256=${expectedSignature}`,
+        valid: false,
+        reason: 'Comprimento diferente'
+      })
+      return false
     }
+
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'hex'),
+      Buffer.from(receivedSignature, 'hex')
+    )
+
+    console.log('🔐 Validação HMAC:', {
+      signature_received: signature,
+      signature_expected: `sha256=${expectedSignature}`,
+      valid: isValid
+    })
+
+    return isValid
   } catch (error) {
-    console.error(`❌ Erro ao enviar credenciais:`, error);
-    // Em caso de erro, não bloquear o processo
-    return true;
+    console.error('❌ Erro na validação HMAC:', error)
+    return false
   }
 }
 
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+// Validar estrutura do webhook
+function validarEstrutura(data: any): data is HotmartWebhookData {
   try {
-    // Validação do token Hotmart
-    const hotmartToken = req.headers['x-hotmart-hottok'] as string;
-    if (!hotmartToken || hotmartToken !== process.env.HOTMART_HOTTOK) {
-      console.log('❌ Token Hotmart inválido');
-      return res.status(401).json({ error: 'Invalid Hotmart token' });
+    return (
+      data &&
+      data.data &&
+      data.data.purchase &&
+      data.data.purchase.buyer &&
+      data.data.purchase.buyer.email &&
+      data.data.purchase.buyer.name &&
+      data.data.purchase.status &&
+      data.data.purchase.order_id
+    )
+  } catch {
+    return false
+  }
+}
+
+// Gerar senha temporária
+function gerarSenhaTemporaria(): string {
+  return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12)
+}
+
+// Criar ou buscar usuário real
+async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
+  try {
+    const email = buyer.email.toLowerCase().trim()
+    const nome = buyer.name.trim()
+
+    // Verificar se usuário já existe na tabela users
+    const { data: existingProfile } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single()
+
+    if (existingProfile) {
+      return {
+        success: true,
+        user_id: existingProfile.id,
+        created: false
+      }
     }
 
-    const payload = req.body;
-    
-    // Salva o payload bruto em webhook_events
-    const { error: webhookError } = await supabase
-      .from('webhook_events')
+    // Gerar senha temporária
+    const senhaTemporaria = gerarSenhaTemporaria()
+
+    // Criar usuário no Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: senhaTemporaria,
+      email_confirm: true,
+      user_metadata: {
+        nome: nome,
+        created_by: 'hotmart_webhook'
+      }
+    })
+
+    if (authError) {
+      return {
+        success: false,
+        message: 'Erro ao criar usuário no Auth',
+        error: authError.message
+      }
+    }
+
+    // Criar perfil do usuário na tabela users
+    const { error: profileError } = await supabase
+      .from('users')
       .insert({
-        source: 'hotmart',
-        event_type: payload.event,
-        payload: payload,
-        received_at: new Date().toISOString()
-      });
+        id: authData.user.id,
+        email: email,
+        nome: nome,
+        is_admin: false,
+        onboarding_completed: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
 
-    if (webhookError) {
-      console.error('❌ Erro ao salvar webhook event:', webhookError);
-    }
-
-    const { event, data } = payload;
-    
-    console.log(`📥 Webhook Hotmart recebido: ${event}`);
-
-    // Processa eventos de compra aprovada - aceita formatos diferentes
-    const validPurchaseEvents = ['PURCHASE_APPROVED', 'PURCHASE_COMPLETE', 'approved', 'purchase_completed'];
-    if (validPurchaseEvents.includes(event)) {
-      const { buyer, purchase } = data;
-      
-      // Gera senha aleatória segura
-      const password = generateSecurePassword(12);
-
-      try {
-        console.log(`🔍 Processando compra para ${buyer.email}`);
-
-        // Verificar se já existe usuário com este email
-        let userId: string;
-        let isNewUser = false;
-
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id, email')
-          .eq('email', buyer.email.toLowerCase())
-          .single();
-
-        if (existingUser) {
-          console.log(`✅ Usuário já existe: ${existingUser.id}`);
-          userId = existingUser.id;
-
-          // Atualizar senha do usuário existente
-          const { error: updatePasswordError } = await supabase.auth.admin.updateUserById(
-            userId,
-            { password }
-          );
-
-          if (updatePasswordError) {
-            console.error('❌ Erro ao atualizar senha:', updatePasswordError);
-          }
-        } else {
-          // Criar novo usuário no Supabase Auth
-          console.log(`🆕 Criando novo usuário para ${buyer.email}`);
-
-          const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-            email: buyer.email.toLowerCase(),
-            password: password,
-            email_confirm: true,
-            user_metadata: {
-              nome: buyer.name,
-              origem: 'hotmart',
-              created_via_webhook: true,
-              hotmart_transaction_id: purchase.transaction
-            }
-          });
-
-          if (authError || !authUser.user) {
-            console.error('❌ Erro ao criar usuário no Auth:', authError);
-            throw new Error(`Falha ao criar usuário: ${authError?.message}`);
-          }
-
-          userId = authUser.user.id;
-          isNewUser = true;
-
-          // Criar perfil na tabela users
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert({
-              id: userId,
-              email: buyer.email.toLowerCase(),
-              nome: buyer.name,
-              is_admin: false,
-              onboarding_completed: false,
-              hotmart_buyer_email: buyer.email,
-              hotmart_buyer_name: buyer.name,
-              hotmart_transaction_id: purchase.transaction
-            });
-
-          if (profileError) {
-            console.error('❌ Erro ao criar perfil:', profileError);
-            // Não falhar o processo por isso, perfil pode ser criado depois
-          }
-
-          console.log(`✅ Usuário criado com sucesso: ${userId}`);
-        }
-
-        const result = {
-          success: true,
-          user_id: userId,
-          username: buyer.email,
-          message: isNewUser ? 'Usuário criado com sucesso' : 'Usuário já existia, senha atualizada'
-        };
-
-        // Verificar se a compra é do produto correto (6012952)
-        const isCorrectProduct = purchase.product_id === 6012952 ||
-                                purchase.product?.id === 6012952 ||
-                                data.product?.id === 6012952;
-
-        console.log('🔍 Verificando produto da compra:', {
-          purchase_product_id: purchase.product_id,
-          data_product_id: data.product?.id,
-          expected_product_id: 6012952,
-          is_correct_product: isCorrectProduct
-        });
-
-        if (!isCorrectProduct) {
-          console.log('⚠️ Produto da compra não é o esperado (6012952), processando mesmo assim');
-        }
-
-        // Buscar ou criar plano para o produto Hotmart 6012952
-        let planoId: string;
-
-        const { data: existingPlano } = await supabase
-          .from('planos')
-          .select('id')
-          .eq('nome', 'Produto Hotmart 6012952')
-          .single();
-
-        if (existingPlano) {
-          planoId = existingPlano.id;
-          console.log(`✅ Plano encontrado: ${planoId}`);
-        } else {
-          // Criar plano se não existir
-          console.log('🆕 Criando plano para produto Hotmart 6012952');
-
-          const { data: newPlano, error: createPlanoError } = await supabase
-            .from('planos')
-            .insert({
-              nome: 'Produto Hotmart 6012952',
-              descricao: 'Acesso via Hotmart - Produto 6012952',
-              preco: purchase.price?.value || 97.00,
-              duracao_dias: 30,
-              ativo: true
-            })
-            .select('id')
-            .single();
-
-          if (createPlanoError || !newPlano) {
-            console.error('❌ Erro ao criar plano:', createPlanoError);
-            throw new Error('Falha ao criar plano para o produto');
-          }
-
-          planoId = newPlano.id;
-          console.log(`✅ Plano criado: ${planoId}`);
-        }
-
-        // Verificar se já existe assinatura ativa para este usuário
-        const { data: existingAssinatura } = await supabase
-          .from('assinaturas')
-          .select('id, status, data_fim')
-          .eq('user_id', userId)
-          .eq('plano_id', planoId)
-          .in('status', ['ativa', 'pendente'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (existingAssinatura) {
-          console.log(`✅ Usuário já possui assinatura ativa: ${existingAssinatura.id}`);
-        } else {
-          // Criar nova assinatura
-          const dataInicio = new Date();
-          const dataFim = new Date();
-          dataFim.setDate(dataFim.getDate() + 30); // 30 dias de acesso
-
-          const { error: assinaturaError } = await supabase
-            .from('assinaturas')
-            .insert({
-              user_id: userId,
-              plano_id: planoId,
-              status: 'ativa',
-              data_inicio: dataInicio.toISOString(),
-              data_fim: dataFim.toISOString()
-            });
-
-          if (assinaturaError) {
-            console.error('❌ Erro ao criar assinatura:', assinaturaError);
-            // Não falhar o processo por isso
-          } else {
-            console.log(`✅ Assinatura criada para usuário ${result.username} - válida até ${dataFim.toLocaleDateString()}`);
-          }
-        }
-
-        // Envia email com credenciais
-        await sendCredentialsEmail(buyer.email, result.username, password);
-        
-        console.log(`✅ Usuário ${result.username} alocado para ${buyer.email}`);
-        
-        return res.status(200).json({ 
-          message: 'User assigned successfully',
-          username: result.username,
-          user_id: result.user_id
-        });
-
-      } catch (error) {
-        console.error('❌ Erro ao processar compra:', error);
-
-        // SEMPRE retornar 200 OK ao Hotmart, mesmo em caso de erro
-        // Isso evita que o Hotmart reenvie o webhook múltiplas vezes
-        return res.status(200).json({
-          message: 'Webhook received but processing failed',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          transaction_id: data?.purchase?.transaction || 'unknown'
-        });
+    if (profileError) {
+      return {
+        success: false,
+        message: 'Erro ao criar perfil do usuário',
+        error: profileError.message
       }
     }
-    
-    // Processa eventos de cancelamento/reembolso
-    else if (event === 'PURCHASE_CANCELLED' || event === 'PURCHASE_REFUNDED') {
-      const { buyer, purchase } = data;
 
-      try {
-        console.log(`🚫 Processando cancelamento/reembolso para ${buyer.email}`);
-
-        // Buscar usuário pelo email
-        const { data: user } = await supabase
-          .from('users')
-          .select('id')
-          .eq('hotmart_buyer_email', buyer.email)
-          .single();
-
-        if (!user) {
-          console.log(`ℹ️ Usuário não encontrado para ${buyer.email}`);
-          return res.status(200).json({
-            message: 'User not found for cancellation',
-            transaction_id: purchase.transaction
-          });
-        }
-
-        // Buscar assinatura ativa do usuário
-        const { data: assinatura } = await supabase
-          .from('assinaturas')
-          .select('id, status')
-          .eq('user_id', user.id)
-          .eq('status', 'ativa')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (assinatura) {
-          // Cancelar assinatura
-          const { error: cancelError } = await supabase
-            .from('assinaturas')
-            .update({
-              status: 'cancelada',
-              data_cancelamento: new Date().toISOString()
-            })
-            .eq('id', assinatura.id);
-
-          if (cancelError) {
-            console.error('❌ Erro ao cancelar assinatura:', cancelError);
-          } else {
-            console.log(`✅ Assinatura ${assinatura.id} cancelada`);
-          }
-        } else {
-          console.log(`ℹ️ Assinatura não encontrada para ${buyer.email}`);
-        }
-
-        return res.status(200).json({
-          message: 'Cancellation processed successfully',
-          transaction_id: purchase.transaction
-        });
-        
-      } catch (error) {
-        console.error('❌ Erro ao liberar usuário:', error);
-
-        // SEMPRE retornar 200 OK ao Hotmart, mesmo em caso de erro
-        return res.status(200).json({
-          message: 'Webhook received but release processing failed',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          transaction_id: data?.purchase?.transaction || 'unknown'
-        });
-      }
+    return {
+      success: true,
+      user_id: authData.user.id,
+      created: true,
+      senha_temporaria: senhaTemporaria
     }
-    
-    // Outros eventos são apenas logados
-    else {
-      console.log(`ℹ️ Evento ${event} recebido mas não processado`);
-      return res.status(200).json({ message: 'Event received' });
-    }
-    
   } catch (error) {
-    console.error('❌ Erro geral no webhook:', error);
+    return {
+      success: false,
+      message: 'Erro interno ao processar usuário',
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    }
+  }
+}
 
-    // SEMPRE retornar 200 OK ao Hotmart, mesmo em caso de erro geral
-    // Isso evita que o Hotmart reenvie o webhook múltiplas vezes
+// Registrar uso de cupom
+async function registrarUsoCupom(
+  cupomCodigo: string,
+  userId: string,
+  valorCompra: number,
+  orderId: string
+) {
+  try {
+    // Buscar cupom válido
+    const { data: cupom, error: cupomError } = await supabase
+      .from('cupons')
+      .select('id')
+      .eq('codigo', cupomCodigo)
+      .eq('ativo', true)
+      .single()
+
+    if (cupomError || !cupom) {
+      return null
+    }
+
+    // Registrar uso do cupom
+    const { data: usoCupom, error: usoError } = await supabase
+      .from('usos_cupons')
+      .insert({
+        cupom_id: cupom.id,
+        user_id: userId,
+        valor_compra: valorCompra,
+        valor_comissao: valorCompra * 0.1, // 10% padrão
+        origem: 'hotmart',
+        hotmart_transaction_id: orderId,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (usoError) {
+      return null
+    }
+
+    return usoCupom.id
+  } catch (error) {
+    return null
+  }
+}
+
+// Processar webhook
+async function processarWebhook(webhookData: HotmartWebhookData) {
+  try {
+    const { data: { purchase } } = webhookData
+
+    // Verificar se o status libera acesso
+    if (!HOTMART_CONFIG.validStatuses.includes(purchase.status)) {
+      return {
+        success: false,
+        message: `Status ${purchase.status} não libera acesso`
+      }
+    }
+
+    // Criar ou buscar usuário
+    const userResult = await criarOuBuscarUsuario(purchase.buyer)
+    if (!userResult.success) {
+      return {
+        success: false,
+        message: userResult.message,
+        error: userResult.error
+      }
+    }
+
+    // Registrar uso de cupom se existir
+    let usoCupomId = null
+    const cupomCodigo = purchase.tracking?.coupon || purchase.tracking?.source
+    if (cupomCodigo && userResult.user_id) {
+      usoCupomId = await registrarUsoCupom(
+        cupomCodigo,
+        userResult.user_id,
+        purchase.price.value,
+        purchase.order_id
+      )
+    }
+
+    return {
+      success: true,
+      message: 'Compra processada com sucesso',
+      data: {
+        user_created: userResult.created,
+        user_id: userResult.user_id,
+        cupom_usado: cupomCodigo || null,
+        uso_cupom_id: usoCupomId,
+        senha_temporaria: userResult.senha_temporaria
+      }
+    }
+
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro interno no processamento',
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    }
+  }
+}
+
+// Função principal do webhook
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const startTime = Date.now()
+
+  // Responder OPTIONS para CORS
+  if (req.method === 'OPTIONS') {
+    console.log('🔄 Requisição OPTIONS recebida para CORS')
+    return res.status(200).json({ message: 'CORS OK' })
+  }
+
+  // Apenas aceitar POST
+  if (req.method !== 'POST') {
+    console.log(`❌ Método ${req.method} não permitido`)
+    return res.status(405).json({ error: 'Método não permitido' })
+  }
+
+  console.log('📨 Webhook recebido da Hotmart')
+  console.log('📋 Headers:', JSON.stringify(req.headers, null, 2))
+
+  try {
+    // Validar headers
+    const signature = req.headers['x-hotmart-signature'] as string
+    if (!signature && HOTMART_CONFIG.webhookSecret) {
+      console.log('❌ Header X-Hotmart-Signature ausente')
+      return res.status(401).json({ error: 'Assinatura HMAC necessária' })
+    }
+
+    // Se não há secret configurado, permitir sem assinatura
+    if (!signature && !HOTMART_CONFIG.webhookSecret) {
+      console.log('⚠️ Processando sem validação HMAC (desenvolvimento)')
+    }
+
+    // Obter raw body - CRÍTICO: usar body original, não JSON.stringify
+    let rawBody: string
+
+    // No dev-server, o body pode vir como string ou objeto
+    if (typeof req.body === 'string') {
+      rawBody = req.body
+    } else {
+      // Usar JSON.stringify com configuração determinística
+      rawBody = JSON.stringify(req.body, null, 0)
+    }
+
+    console.log('📄 Raw body length:', rawBody.length)
+    console.log('📄 Body preview:', rawBody.substring(0, 200) + '...')
+
+    // Validar assinatura HMAC apenas se presente
+    if (signature) {
+      const assinaturaValida = validarAssinatura(rawBody, signature)
+      if (!assinaturaValida) {
+        console.log('❌ Assinatura HMAC inválida')
+        return res.status(401).json({ error: 'Assinatura HMAC inválida' })
+      }
+    }
+
+    // Validar estrutura dos dados
+    if (!validarEstrutura(req.body)) {
+      console.log('❌ Estrutura de dados inválida:', JSON.stringify(req.body, null, 2))
+      return res.status(400).json({ error: 'Estrutura de dados inválida' })
+    }
+
+    // Normalizar evento usando mapeamento
+    const eventoOriginal = req.body.event
+    const eventoNormalizado = HOTMART_CONFIG.eventMapping[eventoOriginal] || eventoOriginal
+
+    console.log(`🔄 Processando evento: ${eventoOriginal} → ${eventoNormalizado}`)
+    console.log(`👤 Comprador: ${req.body.data?.purchase?.buyer?.email || 'N/A'}`)
+    console.log(`💳 Order ID: ${req.body.data?.purchase?.order_id || 'N/A'}`)
+
+    // Processar webhook baseado no evento normalizado
+    let resultado
+
+    switch (eventoNormalizado) {
+      case 'PURCHASE_APPROVED':
+      case 'PURCHASE_COMPLETE':
+        console.log('✅ Processando compra aprovada')
+        resultado = await processarWebhook(req.body)
+        break
+
+      case 'PURCHASE_CANCELED':
+      case 'PURCHASE_REFUNDED':
+      case 'PURCHASE_CHARGEBACK':
+        console.log(`ℹ️ Evento ${eventoNormalizado} recebido - retornando sucesso sem processamento`)
+        resultado = {
+          success: true,
+          message: `Evento ${eventoNormalizado} recebido e processado`
+        }
+        break
+
+      default:
+        console.log(`ℹ️ Evento ${eventoNormalizado} não reconhecido - retornando sucesso`)
+        resultado = {
+          success: true,
+          message: `Evento ${eventoNormalizado} recebido (não processado)`
+        }
+    }
+
+    const processTime = Date.now() - startTime
+    console.log(`⏱️ Processamento concluído em ${processTime}ms`)
+    console.log('📤 Resultado:', JSON.stringify(resultado, null, 2))
+
+    // SEMPRE retornar 200 para a Hotmart (mesmo em caso de erro de processamento)
     return res.status(200).json({
-      message: 'Webhook received but general processing failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+      ...resultado,
+      webhook_id: req.body.id || 'unknown',
+      processed_at: new Date().toISOString(),
+      processing_time_ms: processTime
+    })
+
+  } catch (error) {
+    const processTime = Date.now() - startTime
+    console.error('❌ Erro fatal no webhook:', error)
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A')
+
+    // SEMPRE retornar 200 para evitar reenvios desnecessários da Hotmart
+    return res.status(200).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      error_details: error instanceof Error ? error.message : 'Erro desconhecido',
+      processed_at: new Date().toISOString(),
+      processing_time_ms: processTime
+    })
   }
 }

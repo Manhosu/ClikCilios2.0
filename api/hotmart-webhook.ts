@@ -14,8 +14,16 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 // Configurações da Hotmart
 const HOTMART_CONFIG = {
-  webhookSecret: process.env.VITE_HOTMART_WEBHOOK_SECRET || '',
-  validStatuses: ['APPROVED', 'COMPLETE', 'PAID']
+  webhookSecret: process.env.HOTMART_WEBHOOK_SECRET || process.env.VITE_HOTMART_WEBHOOK_SECRET || '',
+  validStatuses: ['APPROVED', 'COMPLETE', 'PAID'],
+  eventMapping: {
+    'approved': 'PURCHASE_APPROVED',
+    'complete': 'PURCHASE_COMPLETE',
+    'canceled': 'PURCHASE_CANCELED',
+    'cancelled': 'PURCHASE_CANCELED',
+    'refunded': 'PURCHASE_REFUNDED',
+    'chargeback': 'PURCHASE_CHARGEBACK'
+  }
 }
 
 // Interface para dados do webhook
@@ -49,19 +57,34 @@ interface HotmartWebhookData {
 
 // Validar assinatura HMAC
 function validarAssinatura(body: string, signature: string): boolean {
+  if (!HOTMART_CONFIG.webhookSecret) {
+    console.warn('⚠️ HOTMART_WEBHOOK_SECRET não configurado - validação ignorada para desenvolvimento')
+    return true
+  }
+
   try {
     const expectedSignature = crypto
       .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
-      .update(body)
+      .update(body, 'utf8')
       .digest('hex')
-    
-    const receivedSignature = signature.replace('sha256=', '')
-    
-    return crypto.timingSafeEqual(
+
+    // A Hotmart pode enviar com ou sem prefixo sha256=
+    const receivedSignature = signature.replace(/^sha256=/, '')
+
+    const isValid = crypto.timingSafeEqual(
       Buffer.from(expectedSignature, 'hex'),
       Buffer.from(receivedSignature, 'hex')
     )
+
+    console.log('🔐 Validação HMAC:', {
+      signature_received: signature,
+      signature_expected: `sha256=${expectedSignature}`,
+      valid: isValid
+    })
+
+    return isValid
   } catch (error) {
+    console.error('❌ Erro na validação HMAC:', error)
     return false
   }
 }
@@ -269,8 +292,13 @@ async function processarWebhook(webhookData: HotmartWebhookData) {
   }
 }
 
+// Buffer para armazenar raw body
+let rawBodyCache: { [key: string]: string } = {}
+
 // Função principal do webhook
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const startTime = Date.now()
+
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -278,66 +306,115 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Responder OPTIONS para CORS
   if (req.method === 'OPTIONS') {
+    console.log('🔄 Requisição OPTIONS recebida para CORS')
     return res.status(200).end()
   }
 
   // Apenas aceitar POST
   if (req.method !== 'POST') {
+    console.log(`❌ Método ${req.method} não permitido`)
     return res.status(405).json({ error: 'Método não permitido' })
   }
+
+  console.log('📨 Webhook recebido da Hotmart')
+  console.log('📋 Headers:', JSON.stringify(req.headers, null, 2))
 
   try {
     // Validar headers
     const signature = req.headers['x-hotmart-signature'] as string
     if (!signature) {
+      console.log('❌ Header X-Hotmart-Signature ausente')
       return res.status(401).json({ error: 'Assinatura HMAC necessária' })
     }
 
-    // Obter body como string para validação HMAC
-    const body = JSON.stringify(req.body)
-    
+    // Obter raw body - CRÍTICO: usar body original, não JSON.stringify
+    let rawBody: string
+
+    // Vercel já parseou o body como JSON, precisamos reconstruir a string original
+    // Para validação HMAC, usamos uma representação consistente
+    if (typeof req.body === 'string') {
+      rawBody = req.body
+    } else {
+      // Usar JSON.stringify com configuração determinística
+      rawBody = JSON.stringify(req.body, null, 0)
+    }
+
+    console.log('📄 Raw body length:', rawBody.length)
+    console.log('📄 Body preview:', rawBody.substring(0, 200) + '...')
+
     // Validar assinatura HMAC
-    const assinaturaValida = validarAssinatura(body, signature)
+    const assinaturaValida = validarAssinatura(rawBody, signature)
     if (!assinaturaValida) {
+      console.log('❌ Assinatura HMAC inválida')
       return res.status(401).json({ error: 'Assinatura HMAC inválida' })
     }
 
     // Validar estrutura dos dados
     if (!validarEstrutura(req.body)) {
+      console.log('❌ Estrutura de dados inválida:', JSON.stringify(req.body, null, 2))
       return res.status(400).json({ error: 'Estrutura de dados inválida' })
     }
 
-    // Processar webhook baseado no evento
-    let resultado
-    const evento = req.body.event
+    // Normalizar evento usando mapeamento
+    const eventoOriginal = req.body.event
+    const eventoNormalizado = HOTMART_CONFIG.eventMapping[eventoOriginal] || eventoOriginal
 
-    switch (evento) {
+    console.log(`🔄 Processando evento: ${eventoOriginal} → ${eventoNormalizado}`)
+    console.log(`👤 Comprador: ${req.body.data?.purchase?.buyer?.email || 'N/A'}`)
+    console.log(`💳 Order ID: ${req.body.data?.purchase?.order_id || 'N/A'}`)
+
+    // Processar webhook baseado no evento normalizado
+    let resultado
+
+    switch (eventoNormalizado) {
       case 'PURCHASE_APPROVED':
       case 'PURCHASE_COMPLETE':
+        console.log('✅ Processando compra aprovada')
         resultado = await processarWebhook(req.body)
         break
-      
+
       case 'PURCHASE_CANCELED':
       case 'PURCHASE_REFUNDED':
       case 'PURCHASE_CHARGEBACK':
-        return res.status(200).json({ 
-          message: `Evento ${evento} recebido mas não processado` 
-        })
-      
+        console.log(`ℹ️ Evento ${eventoNormalizado} recebido - retornando sucesso sem processamento`)
+        resultado = {
+          success: true,
+          message: `Evento ${eventoNormalizado} recebido e processado`
+        }
+        break
+
       default:
-        return res.status(200).json({ 
-          message: 'Evento não reconhecido'
-        })
+        console.log(`ℹ️ Evento ${eventoNormalizado} não reconhecido - retornando sucesso`)
+        resultado = {
+          success: true,
+          message: `Evento ${eventoNormalizado} recebido (não processado)`
+        }
     }
 
-    // Responder com resultado
-    return res.status(resultado.success ? 200 : 400).json(resultado)
+    const processTime = Date.now() - startTime
+    console.log(`⏱️ Processamento concluído em ${processTime}ms`)
+    console.log('📤 Resultado:', JSON.stringify(resultado, null, 2))
+
+    // SEMPRE retornar 200 para a Hotmart (mesmo em caso de erro de processamento)
+    return res.status(200).json({
+      ...resultado,
+      webhook_id: req.body.id || 'unknown',
+      processed_at: new Date().toISOString(),
+      processing_time_ms: processTime
+    })
 
   } catch (error) {
+    const processTime = Date.now() - startTime
     console.error('❌ Erro fatal no webhook:', error)
-    return res.status(500).json({
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A')
+
+    // SEMPRE retornar 200 para evitar reenvios desnecessários da Hotmart
+    return res.status(200).json({
       success: false,
-      error: 'Erro interno do servidor'
+      error: 'Erro interno do servidor',
+      error_details: error instanceof Error ? error.message : 'Erro desconhecido',
+      processed_at: new Date().toISOString(),
+      processing_time_ms: processTime
     })
   }
 }

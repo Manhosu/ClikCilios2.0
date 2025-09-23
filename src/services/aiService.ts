@@ -16,6 +16,11 @@ export interface EstiloCilio {
   thumbnail: string
   codigo: string
   overlayPath: string
+
+  estilo_base?: string  // 'Brasileiro' (se presente, usa novo formato)
+  mapping?: string      // 'Boneca'
+  tamanho?: string      // 'G'
+  curvatura?: string    // 'C'
 }
 
 export interface ProcessamentoIA {
@@ -40,6 +45,8 @@ let mediaPipeAvailable = false
 /**
  * Estilos de cílios disponíveis
  */
+
+
 export const getEstilosCilios = (): EstiloCilio[] => {
   const estilos = [
     {
@@ -113,7 +120,232 @@ export const getEstilosCilios = (): EstiloCilio[] => {
       thumbnail: '🦊',
       codigo: 'FOX_EYES',
       overlayPath: '/assets/cilios/fox_eyes.png'
-    }
+    },
+    // 🆕 VARIAÇÕES CLÁSSICO GATINHO - 6 combinações
+{
+  id: 'classico-gatinho-p-curva-c',
+  nome: 'Volume Clássico Gatinho P Curva C',
+  descricao: 'Volume clássico gatinho pequeno com curvatura C',
+  thumbnail: '😸',
+  codigo: 'CLASSICO_GATINHO_P_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Gatinho_P_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Gatinho',
+  tamanho: 'P',
+  curvatura: 'C'
+},
+{
+  id: 'classico-gatinho-p-curva-d',
+  nome: 'Volume Clássico Gatinho P Curva D',
+  descricao: 'Volume clássico gatinho pequeno com curvatura D',
+  thumbnail: '😸',
+  codigo: 'CLASSICO_GATINHO_P_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Gatinho_P_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Gatinho',
+  tamanho: 'P',
+  curvatura: 'D'
+},
+{
+  id: 'classico-gatinho-m-curva-c',
+  nome: 'Volume Clássico Gatinho M Curva C',
+  descricao: 'Volume clássico gatinho médio com curvatura C',
+  thumbnail: '😸',
+  codigo: 'CLASSICO_GATINHO_M_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Gatinho_M_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Gatinho',
+  tamanho: 'M',
+  curvatura: 'C'
+},
+{
+  id: 'classico-gatinho-m-curva-d',
+  nome: 'Volume Clássico Gatinho M Curva D',
+  descricao: 'Volume clássico gatinho médio com curvatura D',
+  thumbnail: '😸',
+  codigo: 'CLASSICO_GATINHO_M_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Gatinho_M_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Gatinho',
+  tamanho: 'M',
+  curvatura: 'D'
+},
+{
+  id: 'classico-gatinho-g-curva-c',
+  nome: 'Volume Clássico Gatinho G Curva C',
+  descricao: 'Volume clássico gatinho grande com curvatura C',
+  thumbnail: '',
+  codigo: 'CLASSICO_GATINHO_G_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Gatinho_G_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Gatinho',
+  tamanho: 'G',
+  curvatura: 'C'
+},
+{
+  id: 'classico-gatinho-g-curva-d',
+  nome: 'Volume Clássico Gatinho G Curva D',
+  descricao: 'Volume clássico gatinho grande com curvatura D',
+  thumbnail: '',
+  codigo: 'CLASSICO_GATINHO_G_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Gatinho_G_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Gatinho',
+  tamanho: 'G',
+  curvatura: 'D'
+},
+// 🆕 VARIANTES CLÁSSICO ESQUILO E BONECA - 12 combinações
+// Adicione estes estilos na função getEstilosCilios():
+
+// === CLÁSSICO ESQUILO === //
+{
+  id: 'classico-esquilo-p-curva-c',
+  nome: 'Volume Clássico Esquilo P Curva C',
+  descricao: 'Volume clássico estilo esquilo tamanho P com curvatura C',
+  thumbnail: '',
+  codigo: 'CLASSICO_ESQUILO_P_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Esquilo_P_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Esquilo',
+  tamanho: 'P',
+  curvatura: 'C'
+},
+{
+  id: 'classico-esquilo-p-curva-d',
+  nome: 'Volume Clássico Esquilo P Curva D',
+  descricao: 'Volume clássico estilo esquilo tamanho P com curvatura D',
+  thumbnail: '',
+  codigo: 'CLASSICO_ESQUILO_P_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Esquilo_P_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Esquilo',
+  tamanho: 'P',
+  curvatura: 'D'
+},
+{
+  id: 'classico-esquilo-m-curva-c',
+  nome: 'Volume Clássico Esquilo M Curva C',
+  descricao: 'Volume clássico estilo esquilo tamanho M com curvatura C',
+  thumbnail: '',
+  codigo: 'CLASSICO_ESQUILO_M_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Esquilo_M_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Esquilo',
+  tamanho: 'M',
+  curvatura: 'C'
+},
+{
+  id: 'classico-esquilo-m-curva-d',
+  nome: 'Volume Clássico Esquilo M Curva D',
+  descricao: 'Volume clássico estilo esquilo tamanho M com curvatura D',
+  thumbnail: '',
+  codigo: 'CLASSICO_ESQUILO_M_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Esquilo_M_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Esquilo',
+  tamanho: 'M',
+  curvatura: 'D'
+},
+{
+  id: 'classico-esquilo-g-curva-c',
+  nome: 'Volume Clássico Esquilo G Curva C',
+  descricao: 'Volume clássico estilo esquilo tamanho G com curvatura C',
+  thumbnail: '',
+  codigo: 'CLASSICO_ESQUILO_G_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Esquilo_G_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Esquilo',
+  tamanho: 'G',
+  curvatura: 'C'
+},
+{
+  id: 'classico-esquilo-g-curva-d',
+  nome: 'Volume Clássico Esquilo G Curva D',
+  descricao: 'Volume clássico estilo esquilo tamanho G com curvatura D',
+  thumbnail: '',
+  codigo: 'CLASSICO_ESQUILO_G_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Esquilo_G_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Esquilo',
+  tamanho: 'G',
+  curvatura: 'D'
+},
+
+// === CLÁSSICO BONECA === //
+{
+  id: 'classico-boneca-p-curva-c',
+  nome: 'Volume Clássico Boneca P Curva C',
+  descricao: 'Volume clássico estilo boneca tamanho P com curvatura C',
+  thumbnail: '',
+  codigo: 'CLASSICO_BONECA_P_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Bonce_P_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Boneca',
+  tamanho: 'P',
+  curvatura: 'C'
+},
+{
+  id: 'classico-boneca-p-curva-d',
+  nome: 'Volume Clássico Boneca P Curva D',
+  descricao: 'Volume clássico estilo boneca tamanho P com curvatura D',
+  thumbnail: '',
+  codigo: 'CLASSICO_BONECA_P_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Bonce_P_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Boneca',
+  tamanho: 'P',
+  curvatura: 'D'
+},
+{
+  id: 'classico-boneca-m-curva-c',
+  nome: 'Volume Clássico Boneca M Curva C',
+  descricao: 'Volume clássico estilo boneca tamanho M com curvatura C',
+  thumbnail: '',
+  codigo: 'CLASSICO_BONECA_M_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Bonce_M_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Boneca',
+  tamanho: 'M',
+  curvatura: 'C'
+},
+{
+  id: 'classico-boneca-m-curva-d',
+  nome: 'Volume Clássico Boneca M Curva D',
+  descricao: 'Volume clássico estilo boneca tamanho M com curvatura D',
+  thumbnail: '👶',
+  codigo: 'CLASSICO_BONECA_M_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Bonce_M_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Boneca',
+  tamanho: 'M',
+  curvatura: 'D'
+},
+{
+  id: 'classico-boneca-g-curva-c',
+  nome: 'Volume Clássico Boneca G Curva C',
+  descricao: 'Volume clássico estilo boneca tamanho G com curvatura C',
+  thumbnail: '👶',
+  codigo: 'CLASSICO_BONECA_G_CURVA_C',
+  overlayPath: '/assets/cilios/Classico_Bonce_G_curva C.png',
+  estilo_base: 'Classico',
+  mapping: 'Boneca',
+  tamanho: 'G',
+  curvatura: 'C'
+},
+{
+  id: 'classico-boneca-g-curva-d',
+  nome: 'Volume Clássico Boneca G Curva D',
+  descricao: 'Volume clássico estilo boneca tamanho G com curvatura D',
+  thumbnail: '👶',
+  codigo: 'CLASSICO_BONECA_G_CURVA_D',
+  overlayPath: '/assets/cilios/Classico_Bonce_G_curva D.png',
+  estilo_base: 'Classico',
+  mapping: 'Boneca',
+  tamanho: 'G',
+  curvatura: 'D'
+}
+
+
   ]
   
   // 🔧 Teste de carregamento do primeiro estilo para validação
@@ -127,9 +359,44 @@ export const getEstilosCilios = (): EstiloCilio[] => {
   return estilos
 }
 
-/**
- * 🚀 Carrega os modelos de detecção facial (MediaPipe primeiro, face-api.js como fallback)
- */
+const isNewFormat = (estilo: EstiloCilio): boolean => {
+  return !!(estilo.estilo_base && estilo.mapping && estilo.tamanho && estilo.curvatura)
+}
+
+  // Função para preparar o payload baseado no formato
+const prepareAPIPayload = (estilo: EstiloCilio, file: File): FormData => {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  if (isNewFormat(estilo)) {
+    // 🆕 NOVO FORMATO - campos separados
+    console.log('🆕 Usando NOVO formato para estilo:', estilo.nome)
+    formData.append('estilo_base', estilo.estilo_base!)
+    formData.append('mapping', estilo.mapping!)
+    formData.append('tamanho', estilo.tamanho!)
+    formData.append('curvatura', estilo.curvatura!)
+  } else {
+    // 🔄 FORMATO ANTIGO - cilios_name com correções especiais
+    console.log('🔄 Usando formato ANTIGO para estilo:', estilo.nome)
+    
+    let ciliosName = estilo.codigo.replace(/-/g, '_')
+    
+    // 🚨 CORREÇÕES ESPECÍFICAS PARA COMPATIBILIDADE
+    // Corrige "volume-classico-gatinho" → "CLASSICOGATINHO" (sem volume)
+    if (estilo.id === 'volume-classico-gatinho') {
+      ciliosName = 'volume_classico_gatinho'
+    } else if (estilo.id === 'volume-classico-boneca') {
+      ciliosName = 'volume_classico_boneca'  
+    }
+    // Mantém outros estilos como estão (brasileiro, russo, egípcio, fox-eyes)
+    
+    formData.append('cilios_name', ciliosName)
+  }
+  
+  return formData
+}
+
+
 const loadFaceApiModels = async (): Promise<boolean> => {
   if (modelsLoaded) return modelsAvailable || mediaPipeAvailable
 
@@ -540,6 +807,8 @@ const getStyleRefinementConfig = (selectedStyle: string) => {
   // Configuração padrão se estilo não encontrado
   return configs[selectedStyle] || configs['brasileiro-boneca']
 }
+
+export { isNewFormat, prepareAPIPayload }
 
 /**
  * 🌊 FUNÇÃO AVANÇADA: Aplica overlay com curvatura real da pálpebra

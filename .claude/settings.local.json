@@ -22,7 +22,8 @@
       "Bash(timeout 10 npm run dev:client)",
       "Bash(npm run lint)",
       "Bash(netstat:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(tasklist:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,5 +1,4 @@
-// Webhook Hotmart corrigido - versão para dev-server.js
-import crypto from 'crypto'
+// Webhook Hotmart simplificado - validação por hottok
 import { createClient } from '@supabase/supabase-js'
 
 // Interfaces para o dev-server.js
@@ -27,7 +26,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 // Configurações da Hotmart
 const HOTMART_CONFIG = {
-  webhookSecret: process.env.HOTMART_WEBHOOK_SECRET || process.env.VITE_HOTMART_WEBHOOK_SECRET || '',
+  token: process.env.HOTMART_TOKEN || '',
   validStatuses: ['APPROVED', 'COMPLETE', 'PAID'],
   eventMapping: {
     'approved': 'PURCHASE_APPROVED',
@@ -40,7 +39,8 @@ const HOTMART_CONFIG = {
 }
 
 // Interface para dados do webhook
-interface HotmartWebhookData {
+interface HotmartWebhookPayload {
+  hottok: string
   id: string
   event: string
   data: {
@@ -68,56 +68,12 @@ interface HotmartWebhookData {
   }
 }
 
-// Validar assinatura HMAC
-function validarAssinatura(body: string, signature: string): boolean {
-  if (!HOTMART_CONFIG.webhookSecret) {
-    console.warn('⚠️ HOTMART_WEBHOOK_SECRET não configurado - validação ignorada para desenvolvimento')
-    return true
-  }
-
-  try {
-    const expectedSignature = crypto
-      .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
-      .update(body, 'utf8')
-      .digest('hex')
-
-    // A Hotmart pode enviar com ou sem prefixo sha256=
-    const receivedSignature = signature.replace(/^sha256=/, '')
-
-    // Verificar se as assinaturas têm o mesmo comprimento (evitar erro em timingSafeEqual)
-    if (expectedSignature.length !== receivedSignature.length) {
-      console.log('🔐 Validação HMAC:', {
-        signature_received: signature,
-        signature_expected: `sha256=${expectedSignature}`,
-        valid: false,
-        reason: 'Comprimento diferente'
-      })
-      return false
-    }
-
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(receivedSignature, 'hex')
-    )
-
-    console.log('🔐 Validação HMAC:', {
-      signature_received: signature,
-      signature_expected: `sha256=${expectedSignature}`,
-      valid: isValid
-    })
-
-    return isValid
-  } catch (error) {
-    console.error('❌ Erro na validação HMAC:', error)
-    return false
-  }
-}
-
 // Validar estrutura do webhook
-function validarEstrutura(data: any): data is HotmartWebhookData {
+function validarEstrutura(data: any): data is HotmartWebhookPayload {
   try {
     return (
       data &&
+      data.hottok &&
       data.data &&
       data.data.purchase &&
       data.data.purchase.buyer &&
@@ -261,7 +217,7 @@ async function registrarUsoCupom(
 }
 
 // Processar webhook
-async function processarWebhook(webhookData: HotmartWebhookData) {
+async function processarWebhook(webhookData: HotmartWebhookPayload) {
   try {
     const { data: { purchase } } = webhookData
 
@@ -334,42 +290,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   console.log('📨 Webhook recebido da Hotmart')
   console.log('📋 Headers:', JSON.stringify(req.headers, null, 2))
+  console.log('📄 Payload preview:', JSON.stringify(req.body, null, 2).substring(0, 500) + '...')
 
   try {
-    // Validar headers
-    const signature = req.headers['x-hotmart-signature'] as string
-    if (!signature && HOTMART_CONFIG.webhookSecret) {
-      console.log('❌ Header X-Hotmart-Signature ausente')
-      return res.status(401).json({ error: 'Assinatura HMAC necessária' })
+    // NOVA VALIDAÇÃO: Verificar campo hottok no payload
+    const hottok = req.body?.hottok
+    if (!hottok) {
+      console.log('❌ Campo hottok ausente no payload')
+      return res.status(401).json({ error: 'Token inválido' })
     }
 
-    // Se não há secret configurado, permitir sem assinatura
-    if (!signature && !HOTMART_CONFIG.webhookSecret) {
-      console.log('⚠️ Processando sem validação HMAC (desenvolvimento)')
+    // Validar hottok contra variável de ambiente
+    if (!HOTMART_CONFIG.token) {
+      console.warn('⚠️ HOTMART_TOKEN não configurado - validação ignorada para desenvolvimento')
+    } else if (hottok !== HOTMART_CONFIG.token) {
+      console.log('❌ Token hottok inválido:', { received: hottok, expected: HOTMART_CONFIG.token })
+      return res.status(401).json({ error: 'Token inválido' })
     }
 
-    // Obter raw body - CRÍTICO: usar body original, não JSON.stringify
-    let rawBody: string
-
-    // No dev-server, o body pode vir como string ou objeto
-    if (typeof req.body === 'string') {
-      rawBody = req.body
-    } else {
-      // Usar JSON.stringify com configuração determinística
-      rawBody = JSON.stringify(req.body, null, 0)
-    }
-
-    console.log('📄 Raw body length:', rawBody.length)
-    console.log('📄 Body preview:', rawBody.substring(0, 200) + '...')
-
-    // Validar assinatura HMAC apenas se presente
-    if (signature) {
-      const assinaturaValida = validarAssinatura(rawBody, signature)
-      if (!assinaturaValida) {
-        console.log('❌ Assinatura HMAC inválida')
-        return res.status(401).json({ error: 'Assinatura HMAC inválida' })
-      }
-    }
+    console.log('✅ Token hottok validado com sucesso')
 
     // Validar estrutura dos dados
     if (!validarEstrutura(req.body)) {

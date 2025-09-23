@@ -1,6 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 
 // Configuração do Supabase com service role para operações administrativas
 const supabaseUrl = process.env.VITE_SUPABASE_URL!
@@ -14,7 +13,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 // Configurações da Hotmart
 const HOTMART_CONFIG = {
-  webhookSecret: process.env.HOTMART_WEBHOOK_SECRET || process.env.VITE_HOTMART_WEBHOOK_SECRET || '',
+  token: process.env.HOTMART_TOKEN || '',
   validStatuses: ['APPROVED', 'COMPLETE', 'PAID'],
   eventMapping: {
     'approved': 'PURCHASE_APPROVED',
@@ -27,7 +26,8 @@ const HOTMART_CONFIG = {
 }
 
 // Interface para dados do webhook
-interface HotmartWebhookData {
+interface HotmartWebhookPayload {
+  hottok: string
   id: string
   event: string
   data: {
@@ -55,45 +55,12 @@ interface HotmartWebhookData {
   }
 }
 
-// Validar assinatura HMAC
-function validarAssinatura(body: string, signature: string): boolean {
-  if (!HOTMART_CONFIG.webhookSecret) {
-    console.warn('⚠️ HOTMART_WEBHOOK_SECRET não configurado - validação ignorada para desenvolvimento')
-    return true
-  }
-
-  try {
-    const expectedSignature = crypto
-      .createHmac('sha256', HOTMART_CONFIG.webhookSecret)
-      .update(body, 'utf8')
-      .digest('hex')
-
-    // A Hotmart pode enviar com ou sem prefixo sha256=
-    const receivedSignature = signature.replace(/^sha256=/, '')
-
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(receivedSignature, 'hex')
-    )
-
-    console.log('🔐 Validação HMAC:', {
-      signature_received: signature,
-      signature_expected: `sha256=${expectedSignature}`,
-      valid: isValid
-    })
-
-    return isValid
-  } catch (error) {
-    console.error('❌ Erro na validação HMAC:', error)
-    return false
-  }
-}
-
 // Validar estrutura do webhook
-function validarEstrutura(data: any): data is HotmartWebhookData {
+function validarEstrutura(data: any): data is HotmartWebhookPayload {
   try {
     return (
       data &&
+      data.hottok &&
       data.data &&
       data.data.purchase &&
       data.data.purchase.buyer &&
@@ -124,7 +91,7 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
       .select('id')
       .eq('email', email)
       .single()
-    
+
     if (existingProfile) {
       return {
         success: true,
@@ -193,9 +160,9 @@ async function criarOuBuscarUsuario(buyer: { name: string; email: string }) {
 
 // Registrar uso de cupom
 async function registrarUsoCupom(
-  cupomCodigo: string, 
-  userId: string, 
-  valorCompra: number, 
+  cupomCodigo: string,
+  userId: string,
+  valorCompra: number,
   orderId: string
 ) {
   try {
@@ -206,7 +173,7 @@ async function registrarUsoCupom(
       .eq('codigo', cupomCodigo)
       .eq('ativo', true)
       .single()
-    
+
     if (cupomError || !cupom) {
       return null
     }
@@ -225,7 +192,7 @@ async function registrarUsoCupom(
       })
       .select()
       .single()
-    
+
     if (usoError) {
       return null
     }
@@ -237,7 +204,7 @@ async function registrarUsoCupom(
 }
 
 // Processar webhook
-async function processarWebhook(webhookData: HotmartWebhookData) {
+async function processarWebhook(webhookData: HotmartWebhookPayload) {
   try {
     const { data: { purchase } } = webhookData
 
@@ -264,9 +231,9 @@ async function processarWebhook(webhookData: HotmartWebhookData) {
     const cupomCodigo = purchase.tracking?.coupon || purchase.tracking?.source
     if (cupomCodigo && userResult.user_id) {
       usoCupomId = await registrarUsoCupom(
-        cupomCodigo, 
-        userResult.user_id, 
-        purchase.price.value, 
+        cupomCodigo,
+        userResult.user_id,
+        purchase.price.value,
         purchase.order_id
       )
     }
@@ -292,9 +259,6 @@ async function processarWebhook(webhookData: HotmartWebhookData) {
   }
 }
 
-// Buffer para armazenar raw body
-let rawBodyCache: { [key: string]: string } = {}
-
 // Função principal do webhook
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now()
@@ -302,7 +266,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Hotmart-Signature')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
   // Responder OPTIONS para CORS
   if (req.method === 'OPTIONS') {
@@ -318,36 +282,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   console.log('📨 Webhook recebido da Hotmart')
   console.log('📋 Headers:', JSON.stringify(req.headers, null, 2))
+  console.log('📄 Payload preview:', JSON.stringify(req.body, null, 2).substring(0, 500) + '...')
 
   try {
-    // Validar headers
-    const signature = req.headers['x-hotmart-signature'] as string
-    if (!signature) {
-      console.log('❌ Header X-Hotmart-Signature ausente')
-      return res.status(401).json({ error: 'Assinatura HMAC necessária' })
+    // NOVA VALIDAÇÃO: Verificar campo hottok no payload
+    const hottok = req.body?.hottok
+    if (!hottok) {
+      console.log('❌ Campo hottok ausente no payload')
+      return res.status(401).json({ error: 'Token inválido' })
     }
 
-    // Obter raw body - CRÍTICO: usar body original, não JSON.stringify
-    let rawBody: string
-
-    // Vercel já parseou o body como JSON, precisamos reconstruir a string original
-    // Para validação HMAC, usamos uma representação consistente
-    if (typeof req.body === 'string') {
-      rawBody = req.body
-    } else {
-      // Usar JSON.stringify com configuração determinística
-      rawBody = JSON.stringify(req.body, null, 0)
+    // Validar hottok contra variável de ambiente
+    if (!HOTMART_CONFIG.token) {
+      console.warn('⚠️ HOTMART_TOKEN não configurado - validação ignorada para desenvolvimento')
+    } else if (hottok !== HOTMART_CONFIG.token) {
+      console.log('❌ Token hottok inválido:', { received: hottok, expected: HOTMART_CONFIG.token })
+      return res.status(401).json({ error: 'Token inválido' })
     }
 
-    console.log('📄 Raw body length:', rawBody.length)
-    console.log('📄 Body preview:', rawBody.substring(0, 200) + '...')
-
-    // Validar assinatura HMAC
-    const assinaturaValida = validarAssinatura(rawBody, signature)
-    if (!assinaturaValida) {
-      console.log('❌ Assinatura HMAC inválida')
-      return res.status(401).json({ error: 'Assinatura HMAC inválida' })
-    }
+    console.log('✅ Token hottok validado com sucesso')
 
     // Validar estrutura dos dados
     if (!validarEstrutura(req.body)) {

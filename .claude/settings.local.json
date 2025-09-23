@@ -20,7 +20,9 @@
       "Bash(dir:*)",
       "Bash(cmd /c:*)",
       "Bash(timeout 10 npm run dev:client)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(netstat:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

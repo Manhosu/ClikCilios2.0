@@ -2,94 +2,8 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-// Importações removidas para evitar problemas de módulo em produção
-// import { EmailService } from '../../src/services/emailService';
+import { EmailService } from '../../src/services/emailService';
 
-// Cliente Supabase para hotmartUsersService
-const hotmartSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-// Implementação usando as funções RPC do Supabase
-const hotmartUsersService = {
-  async assignUserToHotmart(buyerEmail: string, buyerName: string, transactionId: string, password: string) {
-    try {
-      const { data, error } = await hotmartSupabase
-        .rpc('assign_user_hotmart', {
-          p_buyer_email: buyerEmail,
-          p_buyer_name: buyerName,
-          p_hotmart_transaction_id: transactionId,
-          p_password: password
-        });
-
-      if (error) {
-        console.error('Erro na função RPC assign_user_hotmart:', error);
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
-        return {
-          success: false,
-          message: 'Nenhum usuário disponível para atribuição'
-        };
-      }
-
-      const result = data[0];
-      
-      if (!result.success) {
-        return {
-          success: false,
-          message: result.message
-        };
-      }
-
-      return {
-        success: true,
-        user_id: result.assigned_user_id,
-        username: result.user_email, // Usando email como username temporariamente
-        message: result.message
-      };
-    } catch (error) {
-      console.error('Erro ao atribuir usuário:', error);
-      throw error;
-    }
-  },
-
-  async releaseUserByTransaction(transactionId: string) {
-    try {
-      const { data, error } = await hotmartSupabase
-        .rpc('release_user_hotmart', {
-          p_hotmart_transaction_id: transactionId
-        });
-
-      if (error) {
-        console.error('Erro na função RPC release_user_hotmart:', error);
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
-        return {
-          success: false,
-          message: 'Usuário não encontrado para esta transação'
-        };
-      }
-
-      const result = data[0];
-      
-      return {
-         success: result.success,
-         message: result.message
-       };
-     } catch (error) {
-       console.error('Erro ao liberar usuário:', error);
-       return {
-         success: false,
-         message: 'Erro interno ao liberar usuário'
-       };
-     }
-   }
-};
 
 // Interfaces para substituir Next.js
 interface NextApiRequest {
@@ -121,57 +35,47 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Função para gerar senha aleatória segura
 function generateSecurePassword(length: number = 12): string {
   const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  const randomBytes = crypto.randomBytes(length);
   let password = '';
-  
+
   for (let i = 0; i < length; i++) {
-    const randomIndex = crypto.randomInt(0, charset.length);
-    password += charset[randomIndex];
+    password += charset[randomBytes[i] % charset.length];
   }
-  
+
   return password;
 }
 
-// Função simplificada para enviar email com credenciais (inline para evitar problemas de módulo)
+// Função para enviar email com credenciais usando EmailService
 async function sendCredentialsEmail(email: string, username: string, password: string) {
   try {
-    console.log(`📧 Tentando enviar credenciais para ${email}`);
-    
-    // Implementação simplificada - apenas log por enquanto
-    // Em produção, isso seria substituído por uma chamada de API externa ou serviço de email
-    console.log(`📋 Credenciais geradas:`);
-    console.log(`   Email: ${email}`);
-    console.log(`   Username: ${username}`);
-    console.log(`   Password: ${password}`);
-    console.log(`   Login URL: ${process.env.NEXT_PUBLIC_APP_URL || 'https://ciliosclick.com/login'}`);
-    
-    // Simular sucesso - em produção, implementar envio real de email
-    console.log(`✅ Credenciais preparadas para ${email} (email seria enviado em produção)`);
-    
-    return true; // Retorna sucesso para não bloquear o fluxo
+    console.log(`📧 Enviando credenciais para ${email}`);
+
+    const loginUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://clik-cilios2-0.vercel.app/login';
+
+    // Usar EmailService para envio real de email
+    const emailSent = await EmailService.sendCredentialsEmail(
+      email,
+      username,
+      password,
+      loginUrl
+    );
+
+    if (emailSent) {
+      console.log(`✅ Email de credenciais enviado para ${email}`);
+      return true;
+    } else {
+      console.error(`❌ Falha ao enviar email para ${email}`);
+      // Em caso de falha no email, não bloquear o processo
+      // O usuário foi criado com sucesso, apenas o email falhou
+      return true;
+    }
   } catch (error) {
-    console.error(`❌ Erro ao preparar credenciais:`, error);
-    return false;
+    console.error(`❌ Erro ao enviar credenciais:`, error);
+    // Em caso de erro, não bloquear o processo
+    return true;
   }
 }
 
-// Função para liberar usuário usando RPC (cancelamento/reembolso)
-async function releaseUser(transactionId: string, notificationId: string) {
-  try {
-    // Usa o serviço de usuários para liberar usuário
-    const result = await hotmartUsersService.releaseUserByTransaction(transactionId);
-    
-    if (!result.success) {
-      console.log('⚠️ Usuário não encontrado ou já liberado:', result.message);
-      return false;
-    }
-    
-    console.log(`✅ Usuário liberado com sucesso: ${result.message}`);
-    return true;
-  } catch (error) {
-    console.error('❌ Erro ao liberar usuário:', error);
-    return false;
-  }
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -206,57 +110,180 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     console.log(`📥 Webhook Hotmart recebido: ${event}`);
 
-    // Processa eventos de compra aprovada
-    if (event === 'PURCHASE_APPROVED' || event === 'PURCHASE_COMPLETE') {
+    // Processa eventos de compra aprovada - aceita formatos diferentes
+    const validPurchaseEvents = ['PURCHASE_APPROVED', 'PURCHASE_COMPLETE', 'approved', 'purchase_completed'];
+    if (validPurchaseEvents.includes(event)) {
       const { buyer, purchase } = data;
       
       // Gera senha aleatória segura
       const password = generateSecurePassword(12);
-      const passwordHash = await bcrypt.hash(password, 12);
 
       try {
-        // Usa o serviço de usuários para atribuir usuário
-        const result = await hotmartUsersService.assignUserToHotmart(
-          buyer.email,
-          buyer.name,
-          purchase.transaction,
-          password
-        );
+        console.log(`🔍 Processando compra para ${buyer.email}`);
 
-        if (!result) {
-          console.log('⚠️ Notificação já processada ou nenhum usuário disponível');
-          return res.status(503).json({ 
-            error: 'No available users or already processed', 
-            message: 'Please retry later' 
+        // Verificar se já existe usuário com este email
+        let userId: string;
+        let isNewUser = false;
+
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('email', buyer.email.toLowerCase())
+          .single();
+
+        if (existingUser) {
+          console.log(`✅ Usuário já existe: ${existingUser.id}`);
+          userId = existingUser.id;
+
+          // Atualizar senha do usuário existente
+          const { error: updatePasswordError } = await supabase.auth.admin.updateUserById(
+            userId,
+            { password }
+          );
+
+          if (updatePasswordError) {
+            console.error('❌ Erro ao atualizar senha:', updatePasswordError);
+          }
+        } else {
+          // Criar novo usuário no Supabase Auth
+          console.log(`🆕 Criando novo usuário para ${buyer.email}`);
+
+          const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+            email: buyer.email.toLowerCase(),
+            password: password,
+            email_confirm: true,
+            user_metadata: {
+              nome: buyer.name,
+              origem: 'hotmart',
+              created_via_webhook: true,
+              hotmart_transaction_id: purchase.transaction
+            }
           });
+
+          if (authError || !authUser.user) {
+            console.error('❌ Erro ao criar usuário no Auth:', authError);
+            throw new Error(`Falha ao criar usuário: ${authError?.message}`);
+          }
+
+          userId = authUser.user.id;
+          isNewUser = true;
+
+          // Criar perfil na tabela users
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              email: buyer.email.toLowerCase(),
+              nome: buyer.name,
+              is_admin: false,
+              onboarding_completed: false,
+              hotmart_buyer_email: buyer.email,
+              hotmart_buyer_name: buyer.name,
+              hotmart_transaction_id: purchase.transaction
+            });
+
+          if (profileError) {
+            console.error('❌ Erro ao criar perfil:', profileError);
+            // Não falhar o processo por isso, perfil pode ser criado depois
+          }
+
+          console.log(`✅ Usuário criado com sucesso: ${userId}`);
         }
 
-        // Cria assinatura automática para o produto Hotmart 6012952
-        const planoResult = await supabase
+        const result = {
+          success: true,
+          user_id: userId,
+          username: buyer.email,
+          message: isNewUser ? 'Usuário criado com sucesso' : 'Usuário já existia, senha atualizada'
+        };
+
+        // Verificar se a compra é do produto correto (6012952)
+        const isCorrectProduct = purchase.product_id === 6012952 ||
+                                purchase.product?.id === 6012952 ||
+                                data.product?.id === 6012952;
+
+        console.log('🔍 Verificando produto da compra:', {
+          purchase_product_id: purchase.product_id,
+          data_product_id: data.product?.id,
+          expected_product_id: 6012952,
+          is_correct_product: isCorrectProduct
+        });
+
+        if (!isCorrectProduct) {
+          console.log('⚠️ Produto da compra não é o esperado (6012952), processando mesmo assim');
+        }
+
+        // Buscar ou criar plano para o produto Hotmart 6012952
+        let planoId: string;
+
+        const { data: existingPlano } = await supabase
           .from('planos')
           .select('id')
           .eq('nome', 'Produto Hotmart 6012952')
           .single();
 
-        if (planoResult.data) {
-          // Calcula data de fim (30 dias a partir de hoje)
-          const dataFim = new Date();
-          dataFim.setDate(dataFim.getDate() + 30);
+        if (existingPlano) {
+          planoId = existingPlano.id;
+          console.log(`✅ Plano encontrado: ${planoId}`);
+        } else {
+          // Criar plano se não existir
+          console.log('🆕 Criando plano para produto Hotmart 6012952');
 
-          const assinaturaResult = await supabase
+          const { data: newPlano, error: createPlanoError } = await supabase
+            .from('planos')
+            .insert({
+              nome: 'Produto Hotmart 6012952',
+              descricao: 'Acesso via Hotmart - Produto 6012952',
+              preco: purchase.price?.value || 97.00,
+              duracao_dias: 30,
+              ativo: true
+            })
+            .select('id')
+            .single();
+
+          if (createPlanoError || !newPlano) {
+            console.error('❌ Erro ao criar plano:', createPlanoError);
+            throw new Error('Falha ao criar plano para o produto');
+          }
+
+          planoId = newPlano.id;
+          console.log(`✅ Plano criado: ${planoId}`);
+        }
+
+        // Verificar se já existe assinatura ativa para este usuário
+        const { data: existingAssinatura } = await supabase
+          .from('assinaturas')
+          .select('id, status, data_fim')
+          .eq('user_id', userId)
+          .eq('plano_id', planoId)
+          .in('status', ['ativa', 'pendente'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (existingAssinatura) {
+          console.log(`✅ Usuário já possui assinatura ativa: ${existingAssinatura.id}`);
+        } else {
+          // Criar nova assinatura
+          const dataInicio = new Date();
+          const dataFim = new Date();
+          dataFim.setDate(dataFim.getDate() + 30); // 30 dias de acesso
+
+          const { error: assinaturaError } = await supabase
             .from('assinaturas')
             .insert({
-              user_id: result.user_id,
-              plano_id: planoResult.data.id,
+              user_id: userId,
+              plano_id: planoId,
               status: 'ativa',
-              data_inicio: new Date(),
-              data_fim: dataFim
+              data_inicio: dataInicio.toISOString(),
+              data_fim: dataFim.toISOString()
             });
 
-          if (assinaturaResult.error) {
-            console.error('❌ Erro ao criar assinatura:', assinaturaResult.error);
+          if (assinaturaError) {
+            console.error('❌ Erro ao criar assinatura:', assinaturaError);
+            // Não falhar o processo por isso
           } else {
-            console.log(`✅ Assinatura criada para usuário ${result.username}`);
+            console.log(`✅ Assinatura criada para usuário ${result.username} - válida até ${dataFim.toLocaleDateString()}`);
           }
         }
 
@@ -270,34 +297,85 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           username: result.username,
           user_id: result.user_id
         });
-        
+
       } catch (error) {
         console.error('❌ Erro ao processar compra:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+
+        // SEMPRE retornar 200 OK ao Hotmart, mesmo em caso de erro
+        // Isso evita que o Hotmart reenvie o webhook múltiplas vezes
+        return res.status(200).json({
+          message: 'Webhook received but processing failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          transaction_id: data?.purchase?.transaction || 'unknown'
+        });
       }
     }
     
     // Processa eventos de cancelamento/reembolso
     else if (event === 'PURCHASE_CANCELLED' || event === 'PURCHASE_REFUNDED') {
       const { buyer, purchase } = data;
-      
+
       try {
-        const released = await releaseUser(purchase.transaction, payload.id);
-        
-        if (released) {
-          console.log(`✅ Usuário liberado para ${buyer.email}`);
-        } else {
-          console.log(`ℹ️ Usuário não encontrado ou já liberado para ${buyer.email}`);
+        console.log(`🚫 Processando cancelamento/reembolso para ${buyer.email}`);
+
+        // Buscar usuário pelo email
+        const { data: user } = await supabase
+          .from('users')
+          .select('id')
+          .eq('hotmart_buyer_email', buyer.email)
+          .single();
+
+        if (!user) {
+          console.log(`ℹ️ Usuário não encontrado para ${buyer.email}`);
+          return res.status(200).json({
+            message: 'User not found for cancellation',
+            transaction_id: purchase.transaction
+          });
         }
-        
-        return res.status(200).json({ 
-          message: released ? 'User released successfully' : 'User not found or already released',
-          released: released
+
+        // Buscar assinatura ativa do usuário
+        const { data: assinatura } = await supabase
+          .from('assinaturas')
+          .select('id, status')
+          .eq('user_id', user.id)
+          .eq('status', 'ativa')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (assinatura) {
+          // Cancelar assinatura
+          const { error: cancelError } = await supabase
+            .from('assinaturas')
+            .update({
+              status: 'cancelada',
+              data_cancelamento: new Date().toISOString()
+            })
+            .eq('id', assinatura.id);
+
+          if (cancelError) {
+            console.error('❌ Erro ao cancelar assinatura:', cancelError);
+          } else {
+            console.log(`✅ Assinatura ${assinatura.id} cancelada`);
+          }
+        } else {
+          console.log(`ℹ️ Assinatura não encontrada para ${buyer.email}`);
+        }
+
+        return res.status(200).json({
+          message: 'Cancellation processed successfully',
+          transaction_id: purchase.transaction
         });
         
       } catch (error) {
         console.error('❌ Erro ao liberar usuário:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+
+        // SEMPRE retornar 200 OK ao Hotmart, mesmo em caso de erro
+        return res.status(200).json({
+          message: 'Webhook received but release processing failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          transaction_id: data?.purchase?.transaction || 'unknown'
+        });
       }
     }
     
@@ -309,6 +387,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
   } catch (error) {
     console.error('❌ Erro geral no webhook:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+
+    // SEMPRE retornar 200 OK ao Hotmart, mesmo em caso de erro geral
+    // Isso evita que o Hotmart reenvie o webhook múltiplas vezes
+    return res.status(200).json({
+      message: 'Webhook received but general processing failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }

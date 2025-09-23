@@ -69,3 +69,4 @@ tmp/
 temp/ 
 .vercel
 .env*.local
+nul

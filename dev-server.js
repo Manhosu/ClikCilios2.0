@@ -11,7 +11,7 @@ dotenv.config({ path: '.env.local' });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = process.env.DEV_API_PORT || 3005;
+const PORT = process.env.DEV_API_PORT || 3006;
 
 // Função para simular req/res do Next.js
 function createNextApiHandler(handler) {
@@ -152,7 +152,7 @@ async function loadListImagesHandler() {
 async function loadHotmartWebhookHandler() {
   try {
     const { pathToFileURL } = await import('url');
-    const filePath = pathToFileURL('./pages/api/hotmart/webhook.ts').href;
+    const filePath = pathToFileURL('./api/hotmart/webhook.ts').href;
     const module = await import(filePath);
     return module.default;
   } catch (error) {

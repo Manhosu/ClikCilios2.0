@@ -20,8 +20,8 @@ const mockWebhookData = {
       name: 'CíliosClick - Acesso Premium'
     },
     buyer: {
-      email: 'webhook.teste@exemplo.com',
-      name: 'Webhook Teste Hotmart'
+      email: 'webhook.novo@exemplo.com',
+      name: 'Webhook Novo Hotmart'
     },
     purchase: {
       transaction: 'HP' + Date.now(),
@@ -61,10 +61,10 @@ async function testWebhookEndpoint() {
     // 2. Chamar o endpoint do webhook
     console.log('\n2️⃣ Chamando endpoint do webhook...');
     
-    const response = await axios.post('http://localhost:3000/api/hotmart/webhook', mockWebhookData, {
+    const response = await axios.post('http://localhost:3006/api/hotmart/webhook', mockWebhookData, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Hotmart-Hottok': process.env.HOTMART_TOKEN || 'test-token'
+        'X-Hotmart-Hottok': process.env.HOTMART_HOTTOK || 'test-token'
       },
       timeout: 10000
     });

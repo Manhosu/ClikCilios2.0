@@ -11,6 +11,7 @@ src/**/*.spec.tsx
 
 # Build artifacts
 dist
+dist-api
 build
 
 # IDE files
@@ -47,3 +48,11 @@ docs/
 
 # Scripts de desenvolvimento
 gerar-usuarios-reais.cjs
+test-*.cjs
+create-test-*.cjs
+verify-*.cjs
+dev-server.js
+
+# Documentation
+*.md
+!README.md

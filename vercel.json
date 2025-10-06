@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@3.0.0"
+    },
     "api/hotmart-webhook.ts": {
       "maxDuration": 30
     },
@@ -8,6 +11,12 @@
       "memory": 1024
     }
   },
+  "builds": [
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api).*)",

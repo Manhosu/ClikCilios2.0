@@ -23,7 +23,9 @@
       "Bash(npm run lint)",
       "Bash(netstat:*)",
       "Bash(timeout:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(move \"pages\\api\\hotmart\\webhook.ts\" \"pages\\api\\hotmart\\webhook.ts.old\")",
+      "Bash(move \"api\\hotmart\\webhook.ts\" \"api\\hotmart\\webhook.ts.old\")"
     ],
     "deny": [],
     "ask": []

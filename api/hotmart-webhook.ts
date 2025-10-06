@@ -11,29 +11,211 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   }
 })
 
-// Interface simplificada para webhook
+// Configuração do SendGrid para envio de emails
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@ciliosclick.com'
+const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || 'CíliosClick'
+
+// Interface para webhook Hotmart (estrutura REAL baseada na documentação oficial)
 interface HotmartWebhook {
-  hottok?: string
+  id?: string
+  creation_date?: number
   event?: string
+  version?: string
   data?: {
+    buyer?: {
+      email?: string
+      name?: string
+      first_name?: string
+      last_name?: string
+      checkout_phone?: string
+      document?: string
+    }
     purchase?: {
-      order_id?: string
-      buyer?: {
-        name?: string
-        email?: string
-      }
+      transaction?: string
+      status?: string
+      approved_date?: number
+      order_date?: number
       price?: {
         value?: number
+        currency_value?: string
       }
-      status?: string
+    }
+    product?: {
+      id?: number
+      name?: string
+      ucode?: string
     }
   }
-  [key: string]: any // Aceitar qualquer campo adicional
+  [key: string]: any // Aceitar campos adicionais
 }
 
 // Gerar senha temporária
 function gerarSenhaTemporaria(): string {
   return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12)
+}
+
+// Enviar email com credenciais usando SendGrid
+async function enviarEmailCredenciais(
+  email: string,
+  nome: string,
+  senha: string
+): Promise<boolean> {
+  if (!SENDGRID_API_KEY) {
+    console.log('⚠️ SENDGRID_API_KEY não configurada - email não será enviado')
+    return false
+  }
+
+  try {
+    const loginUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://clik-cilios2-0.vercel.app/login'
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suas Credenciais de Acesso - CíliosClick</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">Bem-vindo ao CíliosClick!</h1>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                Olá, <strong>${nome}</strong>!
+              </p>
+              <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                Sua compra foi aprovada e sua conta foi criada com sucesso! Aqui estão suas credenciais de acesso:
+              </p>
+
+              <!-- Credentials Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8f9fa; border-radius: 6px; margin: 30px 0;">
+                <tr>
+                  <td style="padding: 25px;">
+                    <p style="margin: 0 0 15px; color: #666666; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Suas Credenciais
+                    </p>
+                    <p style="margin: 0 0 10px; color: #333333; font-size: 16px;">
+                      <strong>Email:</strong> ${email}
+                    </p>
+                    <p style="margin: 0; color: #333333; font-size: 16px;">
+                      <strong>Senha:</strong> <code style="background-color: #ffffff; padding: 4px 8px; border-radius: 4px; font-family: monospace; color: #667eea;">${senha}</code>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0 0 30px; color: #333333; font-size: 16px; line-height: 1.6;">
+                Clique no botão abaixo para fazer login e começar a usar a plataforma:
+              </p>
+
+              <!-- Button -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <a href="${loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 6px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                      Acessar Plataforma
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 30px 0 0; color: #999999; font-size: 14px; line-height: 1.6;">
+                💡 <strong>Dica:</strong> Por segurança, recomendamos que você altere sua senha após o primeiro acesso.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-radius: 0 0 8px 8px;">
+              <p style="margin: 0; color: #999999; font-size: 14px;">
+                Se você não fez essa compra, por favor ignore este email.
+              </p>
+              <p style="margin: 10px 0 0; color: #999999; font-size: 14px;">
+                © ${new Date().getFullYear()} CíliosClick. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `
+
+    const textContent = `
+Bem-vindo ao CíliosClick!
+
+Olá, ${nome}!
+
+Sua compra foi aprovada e sua conta foi criada com sucesso!
+
+Suas credenciais de acesso:
+Email: ${email}
+Senha: ${senha}
+
+Acesse a plataforma em: ${loginUrl}
+
+Por segurança, recomendamos que você altere sua senha após o primeiro acesso.
+
+Se você não fez essa compra, por favor ignore este email.
+
+© ${new Date().getFullYear()} CíliosClick. Todos os direitos reservados.
+    `
+
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        personalizations: [
+          {
+            to: [{ email }],
+            subject: '🎉 Sua conta CíliosClick foi criada! - Credenciais de acesso',
+          },
+        ],
+        from: {
+          email: SENDGRID_FROM_EMAIL,
+          name: SENDGRID_FROM_NAME,
+        },
+        content: [
+          {
+            type: 'text/plain',
+            value: textContent,
+          },
+          {
+            type: 'text/html',
+            value: htmlContent,
+          },
+        ],
+      }),
+    })
+
+    if (response.ok) {
+      console.log(`✅ Email enviado com sucesso para ${email}`)
+      return true
+    } else {
+      const errorData = await response.text()
+      console.error(`❌ Erro ao enviar email:`, response.status, errorData)
+      return false
+    }
+  } catch (error) {
+    console.error('❌ Erro ao enviar email:', error)
+    return false
+  }
 }
 
 // Criar usuário (versão simplificada)
@@ -55,7 +237,24 @@ async function criarUsuario(buyer: { name?: string; email?: string }) {
 
     if (existingUser) {
       console.log(`✅ Usuário já existe: ${email}`)
-      return { success: true, user_id: existingUser.id, created: false }
+      // Gerar nova senha e enviar por email
+      const novaSenha = gerarSenhaTemporaria()
+
+      // Atualizar senha do usuário existente
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        existingUser.id,
+        { password: novaSenha }
+      )
+
+      if (updateError) {
+        console.error('❌ Erro ao atualizar senha:', updateError.message)
+      } else {
+        console.log(`✅ Senha atualizada para usuário existente: ${email}`)
+        // Enviar email com nova senha
+        await enviarEmailCredenciais(email, nome, novaSenha)
+      }
+
+      return { success: true, user_id: existingUser.id, created: false, senha: novaSenha }
     }
 
     // Criar novo usuário
@@ -90,6 +289,10 @@ async function criarUsuario(buyer: { name?: string; email?: string }) {
     }
 
     console.log(`✅ Usuário criado: ${email}`)
+
+    // Enviar email com credenciais
+    await enviarEmailCredenciais(email, nome, senha)
+
     return { success: true, user_id: authData.user.id, created: true, senha }
 
   } catch (error) {
@@ -102,10 +305,10 @@ async function criarUsuario(buyer: { name?: string; email?: string }) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now()
 
-  // Configurar CORS
+  // Configurar CORS (permitir header X-Hotmart-Hottok)
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Hotmart-Hottok, x-hotmart-hottok, hottok')
 
   // Responder OPTIONS
   if (req.method === 'OPTIONS') {
@@ -127,34 +330,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const payload: HotmartWebhook = req.body || {}
 
     // ==========================================
-    // VALIDAÇÃO PRINCIPAL: APENAS HOTTOK
+    // VALIDAÇÃO DO HOTTOK (HEADER OU BODY)
     // ==========================================
 
-    console.log('🔍 Verificando token...')
-    console.log('🔑 Token recebido:', payload.hottok || 'AUSENTE')
+    console.log('🔍 Verificando token hottok...')
+
+    // 1. Buscar hottok em múltiplas fontes (HOTMART ENVIA VIA HEADER!)
+    const hottokFromHeader =
+      req.headers['x-hotmart-hottok'] ||
+      req.headers['X-Hotmart-Hottok'] ||
+      req.headers['hottok']
+
+    const hottokFromBody = (payload as any).hottok
+
+    const hottok = hottokFromHeader || hottokFromBody
+
+    console.log('🔑 Token de onde veio:', hottokFromHeader ? 'HEADER' : hottokFromBody ? 'BODY' : 'AUSENTE')
+    console.log('🔑 Token recebido:', hottok || 'AUSENTE')
     console.log('🔑 Token esperado:', process.env.HOTMART_TOKEN || 'NÃO CONFIGURADO')
 
-    // 1. Verificar se hottok existe
-    if (!payload.hottok) {
-      console.log('❌ Campo hottok ausente')
+    // 2. Verificar se hottok existe
+    if (!hottok) {
+      console.log('❌ Token hottok ausente (não encontrado no header nem no body)')
       return res.status(401).json({ error: 'Token inválido' })
     }
 
-    // 2. Verificar se variável de ambiente está configurada
+    // 3. Verificar se variável de ambiente está configurada
     if (!process.env.HOTMART_TOKEN) {
-      console.log('⚠️ HOTMART_TOKEN não configurado - ACEITAR QUALQUER TOKEN')
+      console.log('⚠️ HOTMART_TOKEN não configurado no ambiente - ACEITAR QUALQUER TOKEN (modo dev)')
       // Em desenvolvimento, aceitar qualquer token
     } else {
-      // 3. Comparar tokens
-      if (payload.hottok !== process.env.HOTMART_TOKEN) {
+      // 4. Comparar tokens
+      if (hottok !== process.env.HOTMART_TOKEN) {
         console.log('❌ Token inválido!')
-        console.log('   Recebido:', payload.hottok)
+        console.log('   Recebido:', hottok)
         console.log('   Esperado:', process.env.HOTMART_TOKEN)
         return res.status(401).json({ error: 'Token inválido' })
       }
     }
 
-    console.log('✅ Token validado com sucesso!')
+    console.log('✅ Token hottok validado com sucesso!')
 
     // ==========================================
     // PROCESSAMENTO DO EVENTO
@@ -163,25 +378,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const evento = payload.event || 'unknown'
     console.log(`🔄 Evento recebido: ${evento}`)
 
-    let resultado = { success: true, message: 'Evento processado' }
+    let resultado: any = { success: true, message: 'Evento processado' }
 
-    // Processar apenas eventos de compra aprovada
-    if (evento === 'approved' || evento === 'PURCHASE_APPROVED' || evento === 'complete') {
+    // Processar eventos de compra aprovada (ESTRUTURA REAL DA HOTMART)
+    if (evento === 'PURCHASE_APPROVED' || evento === 'approved' || evento === 'PURCHASE_COMPLETE') {
       console.log('✅ Processando compra aprovada...')
 
-      const buyer = payload.data?.purchase?.buyer
-      console.log('👤 Dados do comprador:', JSON.stringify(buyer, null, 2))
+      // HOTMART ENVIA: data.buyer (não data.purchase.buyer!)
+      const buyer = payload.data?.buyer
+      console.log('👤 Dados do comprador (data.buyer):', JSON.stringify(buyer, null, 2))
 
-      if (buyer?.email && buyer?.name) {
-        const userResult = await criarUsuario(buyer)
+      // Fallback: tentar buscar em data.purchase.buyer (compatibilidade)
+      const buyerFallback = payload.data?.purchase?.buyer
+      if (buyerFallback && !buyer) {
+        console.log('⚠️ Usando fallback: data.purchase.buyer')
+      }
+
+      const finalBuyer = buyer || buyerFallback
+
+      if (finalBuyer?.email && finalBuyer?.name) {
+        const userResult = await criarUsuario(finalBuyer)
         if (userResult.success) {
           resultado = {
             success: true,
-            message: 'Compra processada e usuário criado',
+            message: userResult.created
+              ? 'Compra processada, usuário criado e email enviado'
+              : 'Compra processada, usuário existente atualizado e email enviado',
             data: {
               user_created: userResult.created,
               user_id: userResult.user_id,
-              email: buyer.email
+              email: finalBuyer.email,
+              email_sent: true,
+              event: evento
             }
           }
         } else {
@@ -193,13 +421,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
       } else {
-        console.log('⚠️ Dados do comprador incompletos')
+        console.log('⚠️ Dados do comprador incompletos ou ausentes')
+        console.log('   Estrutura payload.data:', JSON.stringify(payload.data, null, 2))
         resultado = {
           success: true,
-          message: 'Evento recebido mas dados incompletos'
+          message: 'Evento recebido mas dados do comprador incompletos'
         }
       }
-    } else {
+    }
+    // Processar eventos de cancelamento
+    else if (evento === 'PURCHASE_CANCELED' || evento === 'PURCHASE_CANCELLED' || evento === 'canceled') {
+      console.log(`📝 Evento de cancelamento recebido: ${evento}`)
+      resultado = {
+        success: true,
+        message: `Evento ${evento} recebido e registrado (não processado)`
+      }
+    }
+    // Outros eventos
+    else {
       console.log(`ℹ️ Evento ${evento} recebido (não processado)`)
       resultado = {
         success: true,
@@ -234,26 +473,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 /**
+ * ========================================
+ * WEBHOOK HOTMART - CONFIGURAÇÃO COMPLETA
+ * ========================================
+ *
+ * Este webhook usa a ESTRUTURA REAL que a Hotmart envia!
+ *
+ * COMO A HOTMART ENVIA OS DADOS:
+ * --------------------------------
+ * 1. Token de autenticação: VIA HEADER HTTP "X-Hotmart-Hottok"
+ * 2. Dados do comprador: payload.data.buyer (não data.purchase.buyer!)
+ * 3. Eventos: PURCHASE_APPROVED, PURCHASE_CANCELED (uppercase + underscore)
+ *
  * CONFIGURAÇÃO NO VERCEL:
+ * -----------------------
+ * Vá em Settings > Environment Variables e adicione:
  *
- * 1. Acesse o painel do Vercel
- * 2. Vá em Settings > Environment Variables
- * 3. Adicione a variável:
- *    Name: HOTMART_TOKEN
- *    Value: gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074
- * 4. Deploy novamente o projeto
+ * OBRIGATÓRIAS:
+ * - HOTMART_TOKEN = gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074
+ * - VITE_SUPABASE_URL = sua_url_supabase
+ * - SUPABASE_SERVICE_ROLE_KEY = sua_service_role_key
  *
- * ESTRUTURA ESPERADA DO PAYLOAD:
+ * OPCIONAIS (para envio de email):
+ * - SENDGRID_API_KEY = sua_api_key_sendgrid
+ * - SENDGRID_FROM_EMAIL = noreply@ciliosclick.com
+ * - SENDGRID_FROM_NAME = CíliosClick
+ * - NEXT_PUBLIC_APP_URL = https://clik-cilios2-0.vercel.app
+ *
+ * ESTRUTURA REAL DO PAYLOAD HOTMART:
+ * -----------------------------------
  * {
- *   "hottok": "gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074",
- *   "event": "approved",
+ *   "id": "uuid",
+ *   "creation_date": 1758660642845,
+ *   "event": "PURCHASE_APPROVED",
+ *   "version": "2.0.0",
  *   "data": {
+ *     "buyer": {                    // ← ATENÇÃO: data.buyer (não data.purchase.buyer!)
+ *       "email": "cliente@email.com",
+ *       "name": "Nome do Cliente",
+ *       "first_name": "Nome",
+ *       "last_name": "Cliente"
+ *     },
  *     "purchase": {
- *       "buyer": {
- *         "name": "Nome do Cliente",
- *         "email": "cliente@email.com"
- *       }
+ *       "transaction": "HP123456789",
+ *       "status": "APPROVED",
+ *       "price": { "value": 1500 }
+ *     },
+ *     "product": {
+ *       "id": 123,
+ *       "name": "Nome do Produto"
  *     }
  *   }
  * }
+ *
+ * HEADERS HTTP QUE A HOTMART ENVIA:
+ * ----------------------------------
+ * X-Hotmart-Hottok: gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074
+ * Content-Type: application/json
+ *
+ * EVENTOS SUPORTADOS:
+ * -------------------
+ * ✅ PURCHASE_APPROVED    → Cria usuário + Envia email com credenciais
+ * ✅ PURCHASE_COMPLETE    → Cria usuário + Envia email com credenciais
+ * 📝 PURCHASE_CANCELED    → Apenas log (não cria usuário)
+ * 📝 PURCHASE_CANCELLED   → Apenas log (não cria usuário)
+ * 📝 PURCHASE_REFUNDED    → Apenas log (não cria usuário)
+ * 📝 PURCHASE_CHARGEBACK  → Apenas log (não cria usuário)
+ *
+ * FLUXO DE PROCESSAMENTO:
+ * -----------------------
+ * 1. Recebe webhook da Hotmart
+ * 2. Valida token do header X-Hotmart-Hottok
+ * 3. Se evento = PURCHASE_APPROVED:
+ *    - Extrai email e nome de data.buyer
+ *    - Cria usuário no Supabase (ou atualiza se já existe)
+ *    - Gera senha temporária aleatória
+ *    - Envia email HTML com credenciais
+ * 4. Retorna sempre HTTP 200 (mesmo com erro interno)
+ *
+ * TESTES:
+ * -------
+ * Execute: node test-webhook-hotmart-real.cjs
+ *
+ * IMPORTANTE:
+ * -----------
+ * - Token DEVE vir no header X-Hotmart-Hottok
+ * - Buyer DEVE estar em data.buyer (não data.purchase.buyer)
+ * - Sempre retorna 200 para evitar retentativas da Hotmart
  */

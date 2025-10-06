@@ -10,8 +10,14 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api).*)",
       "destination": "/index.html"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     }
   ],
   "headers": [
@@ -28,7 +34,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-Hotmart-Signature"
+          "value": "Content-Type, Authorization, X-Hotmart-Hottok, x-hotmart-hottok, hottok"
         }
       ]
     }

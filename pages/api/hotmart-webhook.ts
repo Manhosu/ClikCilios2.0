@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-const { credentialsEmailTemplate } = require('../api/emailTemplates')
+import { credentialsEmailTemplate } from '../../api/emailTemplates.mjs'
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL!

@@ -27,7 +27,11 @@
       "Bash(move \"pages\\api\\hotmart\\webhook.ts\" \"pages\\api\\hotmart\\webhook.ts.old\")",
       "Bash(move \"api\\hotmart\\webhook.ts\" \"api\\hotmart\\webhook.ts.old\")",
       "Bash(find:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

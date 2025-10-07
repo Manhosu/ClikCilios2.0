@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
+const { credentialsEmailTemplate } = require('../api/emailTemplates')
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL!
@@ -13,7 +14,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 // Configuração do SendGrid para envio de emails
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@ciliosclick.com'
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'carinaprange86@gmail.com'
 const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || 'CíliosClick'
 
 // Interface para webhook Hotmart (estrutura REAL baseada na documentação oficial)
@@ -69,6 +70,18 @@ async function enviarEmailCredenciais(
   try {
     const loginUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://clik-cilios2-0.vercel.app/login'
 
+    // Usar template bonito do emailTemplates.js
+    const emailTemplate = credentialsEmailTemplate({
+      userName: nome,
+      userEmail: email,
+      password: senha,
+      loginUrl: loginUrl
+    })
+
+    const htmlContent = emailTemplate.htmlContent
+    const textContent = emailTemplate.textContent
+
+    /* Template antigo removido - agora usando emailTemplates.js
     const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -153,26 +166,7 @@ async function enviarEmailCredenciais(
 </body>
 </html>
     `
-
-    const textContent = `
-Bem-vindo ao CíliosClick!
-
-Olá, ${nome}!
-
-Sua compra foi aprovada e sua conta foi criada com sucesso!
-
-Suas credenciais de acesso:
-Email: ${email}
-Senha: ${senha}
-
-Acesse a plataforma em: ${loginUrl}
-
-Por segurança, recomendamos que você altere sua senha após o primeiro acesso.
-
-Se você não fez essa compra, por favor ignore este email.
-
-© ${new Date().getFullYear()} CíliosClick. Todos os direitos reservados.
-    `
+    */ // Fim do template antigo
 
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -184,7 +178,7 @@ Se você não fez essa compra, por favor ignore este email.
         personalizations: [
           {
             to: [{ email }],
-            subject: '🎉 Sua conta CíliosClick foi criada! - Credenciais de acesso',
+            subject: emailTemplate.subject,
           },
         ],
         from: {

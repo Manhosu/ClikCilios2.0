@@ -262,64 +262,286 @@ Juntas, transformando atendimentos em experiências inesquecíveis! ✨
     const subject = '🔐 Suas credenciais de acesso - CíliosClick'
     
     const htmlContent = `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Credenciais de Acesso - CíliosClick</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-    <div style="background-color: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0;">
-            <div style="font-size: 32px; font-weight: bold; color: #7c3aed; margin-bottom: 10px;">CíliosClick</div>
-            <h1>🔐 Suas Credenciais de Acesso</h1>
-        </div>
-
-        <p>Olá, <strong>${data.userName}</strong>!</p>
-        
-        <p>Sua compra foi processada com sucesso e seu acesso à plataforma <strong>CíliosClick</strong> já está liberado!</p>
-
-        <div style="background-color: #f1f5f9; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #7c3aed;">
-            <h3>🔑 Seus dados de acesso:</h3>
-            <p><strong>URL de acesso:</strong> <a href="${data.loginUrl}" style="color: #7c3aed;">${data.loginUrl}</a></p>
-            <p><strong>E-mail:</strong> ${data.userEmail}</p>
-            <p><strong>Senha:</strong> <code style="background-color: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${data.password}</code></p>
-        </div>
-
-        <div style="background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <strong>🔒 Importante:</strong> Por segurança, recomendamos que você altere sua senha após o primeiro login.
-        </div>
-
-        <div style="background-color: #f8fafc; padding: 25px; border-radius: 8px; margin: 25px 0;">
-            <h3>🚀 Primeiros passos:</h3>
-            <div style="margin-bottom: 15px; padding-left: 10px;">1. <strong>Faça login</strong> com suas credenciais</div>
-            <div style="margin-bottom: 15px; padding-left: 10px;">2. <strong>Altere sua senha</strong> nas configurações</div>
-            <div style="margin-bottom: 15px; padding-left: 10px;">3. <strong>Explore a plataforma</strong> e comece a aplicar cílios</div>
-            <div style="margin-bottom: 15px; padding-left: 10px;">4. <strong>Teste com algumas fotos</strong> para se familiarizar</div>
-        </div>
-
-        <div style="text-align: center; margin: 20px 0;">
-            <a href="${data.loginUrl}" style="display: inline-block; background-color: #7c3aed; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Fazer Login Agora</a>
-        </div>
-
-        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #6b7280; font-size: 14px;">
-            <p>Se tiver dúvidas, entre em contato com nosso suporte.</p>
-            <p><strong>Bem-vinda à CíliosClick!</strong><br>Equipe CíliosClick</p>
-        </div>
-    </div>
-</body>
-</html>`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Suas Credenciais - CíliosClick</title>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+          <style>
+              * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+              }
+              
+              body {
+                  font-family: 'Inter', system-ui, sans-serif;
+                  background: linear-gradient(135deg, #fef2f8 0%, #faf5ff 100%);
+                  padding: 20px;
+                  line-height: 1.6;
+              }
+              
+              .container {
+                  max-width: 600px;
+                  margin: 0 auto;
+                  background: white;
+                  border-radius: 24px;
+                  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                  overflow: hidden;
+              }
+              
+              .header {
+                  background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+                  padding: 40px 30px;
+                  text-align: center;
+                  color: white;
+              }
+              
+              .logo {
+                  font-size: 32px;
+                  font-weight: 700;
+                  margin-bottom: 10px;
+                  letter-spacing: -0.5px;
+              }
+              
+              .subtitle {
+                  font-size: 16px;
+                  opacity: 0.9;
+                  font-weight: 400;
+              }
+              
+              .content {
+                  padding: 40px 30px;
+              }
+              
+              .welcome-text {
+                  font-size: 24px;
+                  font-weight: 600;
+                  color: #1f1f1f;
+                  margin-bottom: 20px;
+                  text-align: center;
+              }
+              
+              .description {
+                  font-size: 16px;
+                  color: #525252;
+                  margin-bottom: 30px;
+                  text-align: center;
+                  line-height: 1.7;
+              }
+              
+              .credentials-card {
+                  background: linear-gradient(135deg, #fef2f8 0%, #faf5ff 100%);
+                  border-radius: 16px;
+                  padding: 30px;
+                  margin: 30px 0;
+                  border: 1px solid rgba(236, 72, 153, 0.1);
+              }
+              
+              .credential-item {
+                  margin-bottom: 20px;
+              }
+              
+              .credential-label {
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: #7c3aed;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                  margin-bottom: 8px;
+              }
+              
+              .credential-value {
+                  font-size: 18px;
+                  font-weight: 600;
+                  color: #1f1f1f;
+                  background: white;
+                  padding: 12px 16px;
+                  border-radius: 12px;
+                  border: 2px solid #e9d5ff;
+                  font-family: 'Courier New', monospace;
+                  word-break: break-all;
+              }
+              
+              .login-button {
+                  display: inline-block;
+                  background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+                  color: white;
+                  text-decoration: none;
+                  padding: 16px 32px;
+                  border-radius: 16px;
+                  font-weight: 600;
+                  font-size: 16px;
+                  text-align: center;
+                  margin: 20px auto;
+                  display: block;
+                  max-width: 200px;
+                  transition: all 0.2s ease;
+                  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              }
+              
+              .login-button:hover {
+                  transform: translateY(-2px);
+                  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+              }
+              
+              .security-notice {
+                  background: #fffbeb;
+                  border: 1px solid #fde68a;
+                  border-radius: 12px;
+                  padding: 20px;
+                  margin: 30px 0;
+              }
+              
+              .security-title {
+                  font-size: 16px;
+                  font-weight: 600;
+                  color: #92400e;
+                  margin-bottom: 10px;
+                  display: flex;
+                  align-items: center;
+              }
+              
+              .security-text {
+                  font-size: 14px;
+                  color: #78350f;
+                  line-height: 1.6;
+              }
+              
+              .footer {
+                  background: #fafafa;
+                  padding: 30px;
+                  text-align: center;
+                  border-top: 1px solid #e5e5e5;
+              }
+              
+              .footer-text {
+                  font-size: 14px;
+                  color: #737373;
+                  margin-bottom: 15px;
+              }
+              
+              .social-links {
+                  margin-top: 20px;
+              }
+              
+              .social-link {
+                  display: inline-block;
+                  margin: 0 10px;
+                  color: #a855f7;
+                  text-decoration: none;
+                  font-weight: 500;
+              }
+              
+              .divider {
+                  height: 1px;
+                  background: linear-gradient(90deg, transparent, #e9d5ff, transparent);
+                  margin: 30px 0;
+              }
+              
+              @media (max-width: 600px) {
+                  .container {
+                      margin: 10px;
+                      border-radius: 16px;
+                  }
+                  
+                  .header, .content, .footer {
+                      padding: 30px 20px;
+                  }
+                  
+                  .credentials-card {
+                      padding: 20px;
+                  }
+                  
+                  .credential-value {
+                      font-size: 16px;
+                  }
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <div class="header">
+                  <div class="logo">CíliosClick</div>
+                  <div class="subtitle">Sua plataforma de beleza digital</div>
+              </div>
+              
+              <div class="content">
+                  <h1 class="welcome-text">Bem-vinda, ${data.userName}! 🎉</h1>
+                  
+                  <p class="description">
+                      Sua conta foi criada com sucesso! Agora você tem acesso completo à plataforma CíliosClick. 
+                      Use as credenciais abaixo para fazer seu primeiro login.
+                  </p>
+                  
+                  <div class="credentials-card">
+                      <div class="credential-item">
+                          <div class="credential-label">Email de Acesso</div>
+                          <div class="credential-value">${data.userEmail}</div>
+                      </div>
+                      
+                      <div class="credential-item">
+                           <div class="credential-label">Senha Temporária</div>
+                           <div class="credential-value">${data.password}</div>
+                       </div>
+                  </div>
+                  
+                  <a href="${data.loginUrl}" class="login-button">
+                      Acessar Plataforma
+                  </a>
+                  
+                  <div class="divider"></div>
+                  
+                  <div class="security-notice">
+                      <div class="security-title">
+                          🔒 Importante - Segurança da sua conta
+                      </div>
+                      <div class="security-text">
+                          • Esta é uma senha temporária gerada automaticamente<br>
+                          • Recomendamos alterar sua senha no primeiro acesso<br>
+                          • Nunca compartilhe suas credenciais com terceiros<br>
+                          • Em caso de dúvidas, entre em contato conosco
+                      </div>
+                  </div>
+                  
+                  <p class="description">
+                      Estamos muito felizes em tê-la conosco! Explore todas as funcionalidades da plataforma e 
+                      transforme sua experiência com cílios digitais.
+                  </p>
+              </div>
+              
+              <div class="footer">
+                  <p class="footer-text">
+                      Este email foi enviado automaticamente pelo sistema CíliosClick.<br>
+                      Se você não solicitou esta conta, pode ignorar este email.
+                  </p>
+                  
+                  <div class="social-links">
+                      <a href="#" class="social-link">Suporte</a>
+                      <a href="#" class="social-link">Política de Privacidade</a>
+                      <a href="#" class="social-link">Termos de Uso</a>
+                  </div>
+                  
+                  <p class="footer-text" style="margin-top: 20px; font-size: 12px;">
+                      © 2024 CíliosClick. Todos os direitos reservados.
+                  </p>
+              </div>
+          </div>
+      </body>
+      </html>
+    `
 
     const textContent = `
 Olá, ${data.userName}!
 
-Sua compra foi processada com sucesso e seu acesso à plataforma CíliosClick já está liberado!
+Sua conta foi criada com sucesso! Agora você tem acesso completo à plataforma CíliosClick.
 
 🔑 SEUS DADOS DE ACESSO:
 URL: ${data.loginUrl}
 E-mail: ${data.userEmail}
-Senha: ${data.password}
+Senha Temporária: ${data.password}
 
 🔒 IMPORTANTE: Por segurança, recomendamos que você altere sua senha após o primeiro login.
 

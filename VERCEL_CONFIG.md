@@ -28,7 +28,7 @@ HOTMART_TOKEN=gtnL72D16QPeck2Uky8d92uzq6GHtH6f40dc99-fece-4673-97c2-67aef62e4074
 ### 3. SendGrid (Email)
 
 ```bash
-SENDGRID_API_KEY=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
+SENDGRID_API_KEY=[sua-sendgrid-api-key-aqui]
 SENDGRID_FROM_EMAIL=carinaprange86@gmail.com
 SENDGRID_FROM_NAME=ClikCílios
 ```

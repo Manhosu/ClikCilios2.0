@@ -62,8 +62,8 @@ Este é o passo mais importante - é o webhook que envia as credenciais automati
    Produtos:
    ✅ Selecione o produto "CíliosClick" criado acima
 
-   Secret/Token (opcional mas recomendado):
-   kiwify_secret_2025_cilios_click_webhook
+   Secret/Token:
+   esra6so5axp
    ```
 
 4. **Testar Webhook:**
@@ -104,7 +104,7 @@ O webhook é automático - quando alguém compra, o Kiwify dispara para sua URL.
 
    ```
    Name: KIWIFY_WEBHOOK_SECRET
-   Value: kiwify_secret_2025_cilios_click_webhook
+   Value: esra6so5axp
    Environments: ✅ Production  ✅ Preview  ✅ Development
    ```
 
@@ -351,7 +351,7 @@ Senha: @Carina86
 
 ### Secret do Webhook:
 ```
-kiwify_secret_2025_cilios_click_webhook
+esra6so5axp
 ```
 
 ### Email Remetente:

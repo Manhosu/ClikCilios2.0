@@ -53,7 +53,7 @@ Este é o passo mais importante - é o webhook que envia as credenciais automati
 3. **Configurar o Webhook:**
 
    ```
-   URL do Webhook: https://clik-cilios2-0.vercel.app/api/kiwify-webhook
+   URL do Webhook: https://www.ciliosclick.com.br/api/kiwify-webhook
 
    Eventos para disparar:
    ✅ Compra Aprovada (compra_aprovada) - OBRIGATÓRIO
@@ -185,7 +185,7 @@ Após adicionar a variável `KIWIFY_WEBHOOK_SECRET`:
    Email: email@cliente.com
    Senha: Ab3$xK9pLm2Q
 
-   🔗 Link: https://clik-cilios2-0.vercel.app/login
+   🔗 Link: https://www.ciliosclick.com.br/login
    ```
 
 5. **Verificar no Supabase:**
@@ -277,7 +277,7 @@ Após adicionar a variável `KIWIFY_WEBHOOK_SECRET`:
    ↓
 3. Kiwify aprova pagamento
    ↓
-4. Kiwify dispara webhook → https://clik-cilios2-0.vercel.app/api/kiwify-webhook
+4. Kiwify dispara webhook → https://www.ciliosclick.com.br/api/kiwify-webhook
    ↓
 5. Sistema recebe webhook e extrai:
    - Email do cliente
@@ -298,7 +298,7 @@ Após adicionar a variável `KIWIFY_WEBHOOK_SECRET`:
    ↓
 9. Cliente recebe email (2-5 minutos)
    ↓
-10. Cliente acessa: https://clik-cilios2-0.vercel.app/login
+10. Cliente acessa: https://www.ciliosclick.com.br/login
     ↓
 11. Cliente faz login e usa o sistema ✅
 ```
@@ -314,7 +314,7 @@ Antes de liberar para vendas reais:
 - [ ] Preço configurado
 - [ ] Formas de pagamento ativas
 - [ ] Webhook criado e ativo
-- [ ] URL do webhook: `https://clik-cilios2-0.vercel.app/api/kiwify-webhook`
+- [ ] URL do webhook: `https://www.ciliosclick.com.br/api/kiwify-webhook`
 - [ ] Evento "compra_aprovada" marcado
 - [ ] Teste do webhook retornou 200 OK
 
@@ -337,9 +337,9 @@ Antes de liberar para vendas reais:
 
 ### URLs do Sistema:
 ```
-Webhook: https://clik-cilios2-0.vercel.app/api/kiwify-webhook
-Login: https://clik-cilios2-0.vercel.app/login
-App: https://clik-cilios2-0.vercel.app
+Webhook: https://www.ciliosclick.com.br/api/kiwify-webhook
+Login: https://www.ciliosclick.com.br/login
+App: https://www.ciliosclick.com.br
 ```
 
 ### Credenciais Kiwify:

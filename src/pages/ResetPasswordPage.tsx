@@ -8,16 +8,33 @@ const ResetPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [hasValidToken, setHasValidToken] = useState(false)
+  const [isCheckingToken, setIsCheckingToken] = useState(true)
   const navigate = useNavigate()
 
-  // Verificar se há um hash válido na URL (token de recuperação)
+  // Verificar e processar o token de recuperação
   useEffect(() => {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
+    const checkRecoveryToken = async () => {
+      try {
+        // O Supabase detecta automaticamente o hash de recuperação e estabelece a sessão
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-    if (!accessToken) {
-      setError('Link inválido ou expirado. Solicite um novo link de recuperação.')
+        if (sessionError || !session) {
+          setError('Link inválido ou expirado. Solicite um novo link de recuperação.')
+          setHasValidToken(false)
+        } else {
+          setHasValidToken(true)
+        }
+      } catch (err) {
+        console.error('Erro ao verificar token:', err)
+        setError('Erro ao verificar link de recuperação.')
+        setHasValidToken(false)
+      } finally {
+        setIsCheckingToken(false)
+      }
     }
+
+    checkRecoveryToken()
   }, [])
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -64,6 +81,18 @@ const ResetPasswordPage = () => {
     }
   }
 
+  // Mostrar loading enquanto verifica token
+  if (isCheckingToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-elegant-gradient px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mb-4"></div>
+          <p className="text-elegant-600 font-medium">Verificando link de recuperação...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-elegant-gradient px-4 sm:px-6 lg:px-8">
       <div className="max-w-lg w-full space-y-10">
@@ -81,7 +110,38 @@ const ResetPasswordPage = () => {
         </div>
 
         <div className="card">
-          {success ? (
+          {!hasValidToken ? (
+            <div className="space-y-6">
+              <div className="p-5 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl shadow-elegant">
+                <div className="flex items-center mb-3">
+                  <span className="text-3xl mr-3">❌</span>
+                  <h3 className="text-lg font-bold text-red-800">Link Inválido</h3>
+                </div>
+                <p className="text-red-700 font-medium mb-4">
+                  {error || 'Este link de recuperação é inválido ou já expirou.'}
+                </p>
+                <div className="space-y-2 text-sm text-red-600">
+                  <p>🔄 O link de recuperação expira em 1 hora</p>
+                  <p>🔑 Solicite um novo link na página de login</p>
+                </div>
+              </div>
+
+              <Link
+                to="/forgot-password"
+                className="btn-primary w-full block text-center"
+                style={{ background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)' }}
+              >
+                🔑 Solicitar Novo Link
+              </Link>
+
+              <Link
+                to="/login"
+                className="block text-center text-elegant-600 hover:text-primary-600 font-medium transition-colors"
+              >
+                ← Voltar para o Login
+              </Link>
+            </div>
+          ) : success ? (
             <div className="space-y-6">
               <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl shadow-elegant">
                 <div className="flex items-center mb-3">

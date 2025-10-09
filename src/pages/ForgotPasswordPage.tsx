@@ -29,8 +29,10 @@ const ForgotPasswordPage = () => {
       }
 
       // Enviar email de recuperação via Supabase Auth
+      // Usar URL de produção para garantir que funcione em todos os ambientes
+      const appUrl = import.meta.env.VITE_APP_URL || 'https://www.ciliosclick.com.br'
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${appUrl}/reset-password`,
       })
 
       if (resetError) {

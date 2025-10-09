@@ -187,12 +187,12 @@ async function criarUsuario(dados: { email: string; nome: string }): Promise<{
 
       console.log('✅ Senha atualizada com sucesso!')
 
-      // Enviar email
-      await enviarEmailCredenciais(email, nome, novaSenha)
+      // EMAIL REMOVIDO: Usuário deve usar "Esqueci minha senha" para definir sua própria senha
+      // await enviarEmailCredenciais(email, nome, novaSenha)
 
       return {
         success: true,
-        message: 'Usuário já existe, senha atualizada e email enviado',
+        message: 'Usuário já existe, senha atualizada (use Esqueci minha senha para redefinir)',
         userId: userExists.id,
         senha: novaSenha
       }
@@ -237,19 +237,20 @@ async function criarUsuario(dados: { email: string; nome: string }): Promise<{
       console.log('✅ Perfil criado com sucesso!')
     }
 
-    // 4. Enviar email com credenciais
-    console.log('📧 Enviando email com credenciais...')
-    const emailEnviado = await enviarEmailCredenciais(email, nome, senha)
+    // EMAIL REMOVIDO: Usuário deve usar "Esqueci minha senha" para definir sua própria senha
+    // console.log('📧 Enviando email com credenciais...')
+    // const emailEnviado = await enviarEmailCredenciais(email, nome, senha)
+    // if (emailEnviado) {
+    //   console.log('✅ Processo concluído com sucesso!')
+    // } else {
+    //   console.log('⚠️ Usuário criado mas email não foi enviado')
+    // }
 
-    if (emailEnviado) {
-      console.log('✅ Processo concluído com sucesso!')
-    } else {
-      console.log('⚠️ Usuário criado mas email não foi enviado')
-    }
+    console.log('✅ Usuário criado! Use "Esqueci minha senha" para definir sua senha.')
 
     return {
       success: true,
-      message: 'Usuário criado e email enviado com sucesso',
+      message: 'Usuário criado com sucesso (use Esqueci minha senha para definir senha)',
       userId: authUser.user.id,
       senha: senha
     }

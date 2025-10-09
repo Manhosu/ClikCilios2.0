@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthContext } from '../hooks/useAuthContext'
 
 const LoginPage = () => {
@@ -88,9 +88,17 @@ const LoginPage = () => {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-elegant-700 mb-3">
-                  🔒 Senha
-                </label>
+                <div className="flex items-center justify-between mb-3">
+                  <label htmlFor="password" className="block text-sm font-semibold text-elegant-700">
+                    🔒 Senha
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-medium text-primary-600 hover:text-primary-500 transition-colors"
+                  >
+                    🔑 Esqueci minha senha
+                  </Link>
+                </div>
                 <input
                   id="password"
                   name="password"
@@ -128,9 +136,12 @@ const LoginPage = () => {
             <p className="text-blue-700 font-medium mb-2">
               As contas são criadas automaticamente após a compra do acesso.
             </p>
-            <p className="text-blue-600 text-sm">
-              Após a compra, você receberá suas credenciais de login por email.
+            <p className="text-blue-600 text-sm mb-3">
+              Use o mesmo email da compra e clique em "Esqueci minha senha" para definir sua senha de acesso.
             </p>
+            <div className="text-xs text-blue-500 mt-2">
+              💡 Primeira vez acessando? Use "Esqueci minha senha" para configurar
+            </div>
           </div>
         </div>
 

@@ -9,6 +9,8 @@ import { useAuthContext } from './hooks/useAuthContext'
 
 // Páginas
 import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import Dashboard from './pages/Dashboard'
 import AplicarCiliosPage from './pages/AplicarCiliosPage'
 import ClientesPage from './pages/ClientesPage'
@@ -43,9 +45,11 @@ const SmartRootRedirect = () => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Rota pública */}
+      {/* Rotas públicas */}
       <Route path="/login" element={<LoginPage />} />
-      
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
       {/* Rotas protegidas */}
       <Route path="/dashboard" element={
         <ProtectedRoute>

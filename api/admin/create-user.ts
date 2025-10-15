@@ -4,7 +4,6 @@ import {
   withErrorHandling,
   validateAuth,
   validateMethod,
-  handleApiError,
   AuthenticationError
 } from '../middleware/validation';
 

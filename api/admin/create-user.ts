@@ -1,11 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import {
-  withErrorHandling,
-  validateAuth,
-  validateMethod,
-  AuthenticationError
-} from '../middleware/validation';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
@@ -17,6 +11,30 @@ interface CreateUserRequest {
   email: string;
   senha: string;
   tipo?: 'usuario' | 'admin';
+}
+
+/**
+ * Valida o token de autenticação e retorna o userId
+ */
+async function validateAuthToken(req: NextApiRequest): Promise<string | null> {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return null;
+    }
+
+    return user.id;
+  } catch (error) {
+    console.error('Erro na validação de auth:', error);
+    return null;
+  }
 }
 
 /**
@@ -74,113 +92,143 @@ function validateUserData(data: any): CreateUserRequest {
 /**
  * Handler principal da API
  */
-const createUserHandler = async (req: NextApiRequest, res: NextApiResponse) => {
-  // Validar método HTTP
-  validateMethod(req, ['POST']);
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // Validar autenticação
-  const authResult = await validateAuth(req);
-  if (!authResult || !authResult.userId) {
-    throw new AuthenticationError('Falha na autenticação');
-  }
-  const { userId } = authResult;
-
-  // Validar se é admin
-  const isAdmin = await validateAdmin(userId);
-  if (!isAdmin) {
-    return res.status(403).json({
-      success: false,
-      error: 'Apenas administradores podem criar usuários'
-    });
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
 
-  // Validar dados de entrada
-  const userData = validateUserData(req.body);
-
-  // Verificar se o email já existe
-  const { data: existingUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', userData.email)
-    .single();
-
-  if (existingUser) {
-    return res.status(400).json({
-      success: false,
-      error: 'Email já cadastrado no sistema'
-    });
-  }
-
-  // Criar usuário no Supabase Auth
-  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-    email: userData.email,
-    password: userData.senha,
-    email_confirm: true, // Confirma o email automaticamente
-    user_metadata: {
-      nome: userData.nome,
-      is_admin: userData.tipo === 'admin',
-      created_by: 'admin',
-      created_by_user_id: userId
+  try {
+    // Validar método HTTP
+    if (req.method !== 'POST') {
+      return res.status(405).json({
+        success: false,
+        error: 'Método não permitido'
+      });
     }
-  });
 
-  if (authError || !authUser.user) {
-    console.error('Erro ao criar usuário no Auth:', authError);
-    throw new Error(`Erro ao criar usuário: ${authError?.message || 'Erro desconhecido'}`);
-  }
+    // Validar autenticação
+    const userId = await validateAuthToken(req);
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Não autenticado'
+      });
+    }
 
-  // Criar registro na tabela users
-  const { data: newUser, error: dbError } = await supabase
-    .from('users')
-    .insert({
-      id: authUser.user.id,
+    // Validar se é admin
+    const isAdmin = await validateAdmin(userId);
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Apenas administradores podem criar usuários'
+      });
+    }
+
+    // Validar dados de entrada
+    const userData = validateUserData(req.body);
+
+    // Verificar se o email já existe
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', userData.email)
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email já cadastrado no sistema'
+      });
+    }
+
+    // Criar usuário no Supabase Auth
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email: userData.email,
-      nome: userData.nome,
-      is_admin: userData.tipo === 'admin',
-      onboarding_completed: false,
-      status: 'available',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-
-  if (dbError) {
-    console.error('Erro ao criar registro do usuário:', dbError);
-
-    // Tentar remover o usuário do Auth em caso de erro
-    try {
-      await supabase.auth.admin.deleteUser(authUser.user.id);
-    } catch (cleanupError) {
-      console.error('Erro ao limpar usuário do Auth:', cleanupError);
-    }
-
-    throw new Error(`Erro ao salvar dados do usuário: ${dbError.message}`);
-  }
-
-  // Criar configurações padrão do usuário
-  await supabase
-    .from('configuracoes_usuario')
-    .insert({
-      user_id: authUser.user.id,
-      notificacoes_email: true,
-      tema: 'light',
-      idioma: 'pt-BR',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      password: userData.senha,
+      email_confirm: true, // Confirma o email automaticamente
+      user_metadata: {
+        nome: userData.nome,
+        is_admin: userData.tipo === 'admin',
+        created_by: 'admin',
+        created_by_user_id: userId
+      }
     });
 
-  res.status(201).json({
-    success: true,
-    message: 'Usuário criado com sucesso',
-    data: {
-      id: newUser.id,
-      email: newUser.email,
-      nome: newUser.nome,
-      is_admin: newUser.is_admin,
-      created_at: newUser.created_at
+    if (authError || !authUser.user) {
+      console.error('Erro ao criar usuário no Auth:', authError);
+      return res.status(500).json({
+        success: false,
+        error: `Erro ao criar usuário: ${authError?.message || 'Erro desconhecido'}`
+      });
     }
-  });
-};
 
-export default withErrorHandling(createUserHandler);
+    // Criar registro na tabela users
+    const { data: newUser, error: dbError } = await supabase
+      .from('users')
+      .insert({
+        id: authUser.user.id,
+        email: userData.email,
+        nome: userData.nome,
+        is_admin: userData.tipo === 'admin',
+        onboarding_completed: false,
+        status: 'available',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Erro ao criar registro do usuário:', dbError);
+
+      // Tentar remover o usuário do Auth em caso de erro
+      try {
+        await supabase.auth.admin.deleteUser(authUser.user.id);
+      } catch (cleanupError) {
+        console.error('Erro ao limpar usuário do Auth:', cleanupError);
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: `Erro ao salvar dados do usuário: ${dbError.message}`
+      });
+    }
+
+    // Criar configurações padrão do usuário
+    await supabase
+      .from('configuracoes_usuario')
+      .insert({
+        user_id: authUser.user.id,
+        notificacoes_email: true,
+        tema: 'light',
+        idioma: 'pt-BR',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuário criado com sucesso',
+      data: {
+        id: newUser.id,
+        email: newUser.email,
+        nome: newUser.nome,
+        is_admin: newUser.is_admin,
+        created_at: newUser.created_at
+      }
+    });
+  } catch (error: any) {
+    console.error('Erro no handler:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro interno do servidor'
+    });
+  }
+}

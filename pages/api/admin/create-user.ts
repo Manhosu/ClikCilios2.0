@@ -27,7 +27,7 @@ async function validateAdmin(userId: string): Promise<boolean> {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('email, tipo')
+      .select('email, is_admin')
       .eq('id', userId)
       .single();
 
@@ -35,8 +35,8 @@ async function validateAdmin(userId: string): Promise<boolean> {
       return false;
     }
 
-    // Verifica se é a Carina ou tem tipo admin
-    return user.email === 'carina@ciliosclick.com' || user.tipo === 'admin';
+    // Verifica se é a Carina ou tem a flag is_admin
+    return user.email === 'carinaprange86@gmail.com' || user.is_admin === true;
   } catch (error) {
     console.error('Erro ao validar admin:', error);
     return false;
@@ -119,7 +119,7 @@ const createUserHandler = async (req: NextApiRequest, res: NextApiResponse) => {
     email_confirm: true, // Confirma o email automaticamente
     user_metadata: {
       nome: userData.nome,
-      tipo: userData.tipo,
+      is_admin: userData.tipo === 'admin',
       created_by: 'admin',
       created_by_user_id: userId
     }
@@ -137,8 +137,9 @@ const createUserHandler = async (req: NextApiRequest, res: NextApiResponse) => {
       id: authUser.user.id,
       email: userData.email,
       nome: userData.nome,
-      tipo: userData.tipo,
-      onboarding_completo: false,
+      is_admin: userData.tipo === 'admin',
+      onboarding_completed: false,
+      status: 'available',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -177,7 +178,7 @@ const createUserHandler = async (req: NextApiRequest, res: NextApiResponse) => {
       id: newUser.id,
       email: newUser.email,
       nome: newUser.nome,
-      tipo: newUser.tipo,
+      is_admin: newUser.is_admin,
       created_at: newUser.created_at
     }
   });

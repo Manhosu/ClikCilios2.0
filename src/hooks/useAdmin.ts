@@ -6,9 +6,8 @@ import { useAuthContext } from './useAuthContext'
 export const useAdmin = () => {
   const { user, isLoading } = useAuthContext()
 
-  // Por enquanto, apenas a Carina (email específico) é admin
-  // Futuramente pode usar o campo 'tipo' do banco de dados
-  const isAdmin = user?.email === 'carina@ciliosclick.com' || user?.tipo === 'admin'
+  // Verifica se é admin pelo email ou pela flag is_admin
+  const isAdmin = user?.email === 'carinaprange86@gmail.com' || user?.is_admin === true
 
   return {
     isAdmin,

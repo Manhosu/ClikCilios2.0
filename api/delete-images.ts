@@ -1,12 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs/promises';
-import path from 'path';
-import { 
+import {
   withErrorHandling,
   validateAuth,
-  validateMethod,
-  handleApiError
+  validateMethod
 } from './middleware/validation';
 
 // Configuração do Supabase

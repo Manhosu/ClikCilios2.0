@@ -1,13 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { 
+import {
   withErrorHandling,
   validateAuth,
   validateMethod,
   validatePaginationParams,
   validateSortParams,
   validateSearchTerm,
-  handleApiError,
   AuthenticationError
 } from './middleware/validation';
 
@@ -16,18 +15,6 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-interface ImageListItem {
-  id: string;
-  filename: string;
-  original_name: string;
-  file_size: number;
-  mime_type: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-}
-
 interface DirectoryStats {
   total_images: number;
   total_size: number;
@@ -35,8 +22,6 @@ interface DirectoryStats {
   created_at: string;
   updated_at: string;
 }
-
-// Função validateAuth removida - usando a do middleware
 
 /**
  * Busca estatísticas do diretório do usuário
@@ -60,15 +45,13 @@ async function getDirectoryStats(userId: string): Promise<DirectoryStats | null>
   }
 }
 
-
-
 /**
  * Handler principal da API
  */
 const listHandler = async (req: NextApiRequest, res: NextApiResponse) => {
   // Validar método HTTP
   validateMethod(req, ['GET']);
-  
+
   // Validar autenticação
   const authResult = await validateAuth(req);
   if (!authResult || !authResult.userId) {
@@ -84,19 +67,19 @@ const listHandler = async (req: NextApiRequest, res: NextApiResponse) => {
     sortOrder = 'desc',
     search = ''
   } = req.query;
- 
+
   // Validar paginação
   const { page: pageNum, limit: limitNum, offset } = validatePaginationParams({
     page: parseInt(page as string),
     limit: parseInt(limit as string)
   });
- 
+
   // Validar ordenação
   const { sortBy: validSortBy, sortOrder: validSortOrder } = validateSortParams({
     sortBy: sortBy as string,
     sortOrder: sortOrder as string
   });
- 
+
   // Validar termo de busca
   const searchTerm = validateSearchTerm(search as string);
 
@@ -110,40 +93,40 @@ const listHandler = async (req: NextApiRequest, res: NextApiResponse) => {
     .eq('user_id', userId)
     .order(validSortBy, { ascending: validSortOrder === 'asc' })
     .range(offset, offset + limitNum - 1);
- 
+
   // Adicionar filtro de busca se fornecido
   if (searchTerm) {
     query = query.or(`filename.ilike.%${searchTerm}%,original_name.ilike.%${searchTerm}%`);
   }
- 
+
   // Executar query
   const { data: images, error: imagesError } = await query;
- 
+
   if (imagesError) {
     throw new Error(`Erro ao buscar imagens: ${imagesError.message}`);
   }
- 
+
   // Buscar total de imagens para paginação
   let countQuery = supabase
     .from('imagens_clientes')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId);
- 
+
   if (searchTerm) {
     countQuery = countQuery.or(`filename.ilike.%${searchTerm}%,original_name.ilike.%${searchTerm}%`);
   }
- 
+
   const { count: totalImages, error: countError } = await countQuery;
- 
+
   if (countError) {
     throw new Error(`Erro ao contar imagens: ${countError.message}`);
   }
- 
+
   // Calcular informações de paginação
   const totalPages = Math.ceil((totalImages || 0) / limitNum);
   const hasNextPage = pageNum < totalPages;
   const hasPrevPage = pageNum > 1;
- 
+
   res.status(200).json({
     success: true,
     data: {
@@ -165,5 +148,5 @@ const listHandler = async (req: NextApiRequest, res: NextApiResponse) => {
     }
   });
 };
- 
+
 export default withErrorHandling(listHandler);

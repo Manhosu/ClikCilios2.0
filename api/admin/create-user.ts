@@ -169,10 +169,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Criar registro na tabela users
+    // Criar ou atualizar registro na tabela users (upsert)
     const { data: newUser, error: dbError } = await supabase
       .from('users')
-      .insert({
+      .upsert({
         id: authUser.user.id,
         email: userData.email,
         nome: userData.nome,
@@ -181,6 +181,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: 'available',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id'
       })
       .select()
       .single();
